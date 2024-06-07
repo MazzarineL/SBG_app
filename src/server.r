@@ -20,7 +20,6 @@ library(maps)
 # Définir le serveur
 server <- function(input, output, session) {
 
-
 world <- map_data("world")
 
 cover_genus_garden_full <- read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/cover_genus_garden_500.csv") )
@@ -525,7 +524,7 @@ data_clim_sub <- data_clim_sub %>%
                   aes(x = temperature, 
                       y = precipitation, 
                       color = code_garden),
-                  size = 0.5,  
+                  linewidth = 0.5,  
                   alpha = 0.3, 
                   h = 10) +  
   
@@ -963,7 +962,6 @@ output$downloadTablespecies <- downloadHandler(
 
 }
 
-shinyApp(ui = ui, server = server)
 
 
-
+shinyApp(server = server, ui =ui)
