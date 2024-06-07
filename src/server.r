@@ -23,13 +23,13 @@ server <- function(input, output, session) {
 
 world <- map_data("world")
 
-cover_genus_garden_full <- read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/cover_genus_garden_500.csv") )
-cover_species_garden_full <- read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/cover_species_garden_500.csv") )
-whit_part1.1 <- read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data_env_gift_part1.csv"), sep = ";")
-whit_part1.2 <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data_env_gift_part2.csv"), sep = ";")
-whit_part1.3 <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data_env_gift_part3.csv"), sep = ";")
-whit_part1.4 <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data_env_gift_part1.4.csv"), sep = ",")
-whit_part2 <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data_env_gift_part4.csv"), sep = ";")
+cover_genus_garden_full <- read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/cover_genus_garden_500.csv") )
+cover_species_garden_full <- read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/cover_species_garden_500.csv") )
+whit_part1.1 <- read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/data_env_gift_part1.csv"), sep = ";")
+whit_part1.2 <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/data_env_gift_part2.csv"), sep = ";")
+whit_part1.3 <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/data_env_gift_part3.csv"), sep = ";")
+whit_part1.4 <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/data_env_gift_part1.4.csv"), sep = ",")
+whit_part2 <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/data_env_gift_part4.csv"), sep = ";")
 
 whit_part1.4 <- whit_part1.4 %>% dplyr::select(-biome)
 
@@ -483,7 +483,7 @@ data_clim_sub <- data_clim_sub %>%
   labs(title = "Whittaker plot") +
   theme_minimal() +
   theme(panel.background = element_rect(fill = "white", color = NA)) +
-   guides(color = guide_legend(override.aes = list(size = 3))) 
+  guides(color = guide_legend(override.aes = list(size = 1))) 
 
 print(whitfamily)
 

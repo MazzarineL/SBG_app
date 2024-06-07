@@ -4,6 +4,9 @@ library(plotly)
 library(curl)
 library(leaflet)
 
+cover_species_garden_full <- read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/cover_species_garden_500.csv") )
+
+
 ui <- dashboardPage(
   dashboardHeader(title = "Cover Botanical Garden"),
   dashboardSidebar(
