@@ -36,26 +36,29 @@ ui <- dashboardPage(
           )
         )
       ),
-      tabItem(tabName = "family_tree",
-              helpText("This section presents the Family Tree plot, highlighting the genus names in blue if they are included in the botanical garden, thereby enhancing the coverage optimization for the family. You can adjust the window size and the step for change the calcul parameters."),
-        fluidRow(
-          box(title = "Family Tree", status = "primary", solidHeader = TRUE, width = 12,
-            sliderInput(inputId = "step", label = "Step", min = 1, max = 10, value = 5),
-            sliderInput(inputId = "window", label = "Window", min = 1, max = 10, value = 5),
-            textOutput("textgenus"),
-            tableOutput("onlygenus"),
-            plotOutput(outputId = "FamilyPlot", height = "800px"),  
-            div(style = "margin-top: 20px;",
-              tableOutput("mytable"),
-              tags$style(HTML("
-                #mytable table {
-                  width: 100%;
-                }
-                #mytable td {
-                  width: 33%;
-                }
-              "))
-            ),
+tabItem(tabName = "family_tree",
+  helpText("This section presents the Family Tree plot, highlighting the genus names in blue if they are included in the botanical garden, thereby enhancing the coverage optimization for the family. You can adjust the window size and the step for change the calcul parameters."),
+  fluidRow(
+    box(title = "Family Tree", status = "primary", solidHeader = TRUE, width = 12,
+      sliderInput(inputId = "genus_select", label = "Number of genus to select", min = 1, max = 30, value = 5),
+      tags$div(style = "color: #ff0000; font-size: 14px; font-weight: bold; margin-top: 10px;",
+        "It may happen that the number of genera selected cannot be perfectly matched to your request, in which case the model will choose the number of genera closest to your pre-selection, maximizing genus coverage.
+        furthermore, if you've chosen a high number of genus and the tree has no blue branches, this means that you've reached the maximum number of selectable genus and there are none to select as a priority"
+      ),
+      textOutput("textgenus"),
+      tableOutput("onlygenus"),
+      plotOutput(outputId = "FamilyPlot", height = "800px"),  
+      div(style = "margin-top: 20px;",
+        tableOutput("mytable"),
+        tags$style(HTML("
+          #mytable table {
+            width: 100%;
+          }
+          #mytable td {
+            width: 33%;
+          }
+        "))
+      ),
             div(class = "btn-group",
               downloadButton(outputId = "downloadFamilyPlot", label = "Download Family Tree Plot", class = "btn btn-primary"),
               tags$br(), tags$br(),

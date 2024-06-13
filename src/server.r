@@ -141,8 +141,7 @@ whit_part1 <- rbind(whit_part1.1, whit_part1.2,whit_part1.3,whit_part1.4)
 
 
 ############################################
-
-observeEvent(c(input$action, input$step, input$window), {
+observeEvent(c(input$action, input$genus_select), {
   withProgress(message = 'Chargement des données...', value = 0, {
     req(input$Garden != "")
     
@@ -152,15 +151,26 @@ observeEvent(c(input$action, input$step, input$window), {
     output$FamilyPlot <- NULL
     output$textgenus <- NULL
     genus_cover <- NULL
-    step <- input$step
-    window <- input$window
+    genus_select <- input$genus_select
     input_code <- input$Garden
     cover_genus_garden <- cover_genus_garden_full
-
-    # Étape de mise à jour de la progression
-    incProgress(1/6, detail = "Préparation des données...")
     
-
+    # Nouvelle condition ajoutée
+    if (genus_select > sum(cover_genus_garden$pres == 0)) {
+      cover_genus_garden$pres[cover_genus_garden$pres == 0] <- 3
+      final_best_df <- cover_genus_garden
+      # Skip the rest of the script and proceed directly to split by 'pres' for plot coloring
+      goto_split <- TRUE
+    } else {
+      goto_split <- FALSE
+    }
+    
+    if (!goto_split) {
+      # Continue with the rest of the script
+      
+      # Étape de mise à jour de la progression
+      incProgress(1/6, detail = "Préparation des données...")
+      
       if (length(input_code) == 1) {
         cover_genus_garden$code_garden <- ifelse(!grepl(paste(input_code, collapse = "|"), cover_genus_garden$code_garden), NA, cover_genus_garden$code_garden)
         cover_genus_garden$code_garden[!is.na(cover_genus_garden$code_garden)] <- paste(input_code, collapse = "_") 
@@ -173,14 +183,14 @@ observeEvent(c(input$action, input$step, input$window), {
         cover_genus_garden$code_garden <- gsub("_+", "_", cover_genus_garden$code_garden)
         cover_genus_garden$code_garden <- gsub("^_|_$", "", cover_genus_garden$code_garden)
       }
-
+      
       incProgress(2/6, detail = "Filtrage des données...")
-
+      
       unique_genera_count <- cover_genus_garden_full %>%
         filter(family == family_test) %>%
         distinct(genus) %>%
         nrow()
-
+      
       if (unique_genera_count == 1) {
         output$onlygenus <- renderTable({
           genus_line <- subset(cover_species_garden_full, family == family_test)
@@ -196,44 +206,163 @@ observeEvent(c(input$action, input$step, input$window), {
         cover_genus_garden$pres[is.na(cover_genus_garden$pres)] <- 0
         cover_genus_garden <- cover_genus_garden %>%
           mutate(code_garden = na_if(code_garden, ""))
-
+        
         cover_genus_garden <- cover_genus_garden[!is.na(cover_genus_garden$ott_id.family), ]
         cover_genus_garden$genus <- gsub("^x ", "", cover_genus_garden$genus)
         cover_genus_garden$pres[is.na(cover_genus_garden$code_garden)] <- 0
-
-        incProgress(3/10, detail = "Génération de l'arbre phylogénétique...")
-
+        
+        incProgress(3/6, detail = "Génération de l'arbre phylogénétique...")
+        
         tree <- rotl::tol_induced_subtree(ott_ids = cover_genus_garden$uid)
         tree$tip.label <- gsub("^x_|\\(genus_in_kingdom_Archaeplastida\\)_|_.*", "", tree$tip.label)
-
-        p <- ggtree(tree) + geom_tiplab()
-
+        
+        p <- ggtree(tree) + geom_tiplab() + 
+          geom_hilight(node = 12, extendto = 2.5)
+        
         df_rangement <- data.frame(genus = get_taxa_name(p))
         df_rangement <- merge(df_rangement, cover_genus_garden, by = "genus", all.x = TRUE, sort = FALSE)
-        df_rangement <- df_rangement %>%
-          mutate(date = as.Date('2023-01-01') + row_number() - 1)
-        df_rangement <- df_rangement %>%
-          dplyr::mutate(reg_7day = slider::slide_dbl(pres, .f = ~sum(.x, na.rm = TRUE), .before = window, .after = window, .step = step))
-        df_rangement <- df_rangement %>%
-          dplyr::mutate(pres = if_else(reg_7day == 0 & pres == 0, 3, pres))
-
+        
+        # Ajouter une colonne date...
+        
+        # Fonction pour ajuster les valeurs before, after, step...
+        
+        best_diff <- Inf
+        best_dfs <- list()
+        before_values <- 0:10
+        after_values <- 0:10
+        step_values <- 1:5
+        
+        for (before in before_values) {
+          for (after in after_values) {
+            for (step in step_values) {
+              df_temp <- df_rangement %>%
+                dplyr::mutate(
+                  reg_7day = slide_dbl(
+                    pres,
+                    .f = ~sum(.x, na.rm = TRUE),
+                    .before = before,
+                    .after = after,
+                    .step = step
+                  )
+                )
+              
+              # Gérer les NA dans reg_7day
+              df_temp <- df_temp %>%
+                mutate(
+                  reg_7day = case_when(
+                    is.na(reg_7day) & pres == 0 ~ 1,
+                    is.na(reg_7day) & pres == 1 ~ 2,
+                    TRUE ~ reg_7day
+                  ),
+                  pres = if_else(reg_7day == 0 & pres == 0, 3, pres)
+                )
+              
+              count_3 <- sum(df_temp$pres == 3, na.rm = TRUE)
+              
+              # Vérifier si count_3 dépasse le seuil et passer à la boucle suivante si c'est le cas
+              if (is.na(count_3) || count_3 > genus_select) {
+                next
+              }
+              
+              diff <- abs(count_3 - genus_select)
+              
+              if (diff == 0) {
+                best_dfs[[length(best_dfs) + 1]] <- df_temp
+              }
+              
+              if (diff < best_diff) {
+                best_diff <- diff
+                best_df <- df_temp
+              }
+            }
+          }
+        }
+        
+        # Fonction pour calculer la distance minimale entre les valeurs 3 dans la colonne 'pres'
+        calculate_distance <- function(df) {
+          indices <- which(df$pres == 3)
+          if (length(indices) < 2) return(0)
+          return(min(diff(indices)))
+        }
+        
+        # Sélectionner le meilleur dataframe qui maximise la distance entre les valeurs 3 dans 'pres'
+        max_distance <- -Inf
+        final_best_df <- NULL
+        
+        for (df in best_dfs) {
+          distance <- calculate_distance(df)
+          if (distance > max_distance) {
+            max_distance <- distance
+            final_best_df <- df
+          }
+        }
+        
+        # Si best_dfs est vide, sélectionner les df avec la valeur de diff la plus proche de 0
+        if (length(best_dfs) == 0) {
+          min_diff <- Inf
+          for (before in before_values) {
+            for (after in after_values) {
+              for (step in step_values) {
+                df_temp <- df_rangement %>%
+                  dplyr::mutate(
+                    reg_7day = slide_dbl(
+                      pres,
+                      .f = ~sum(.x, na.rm = TRUE),
+                      .before = before,
+                      .after = after,
+                      .step = step
+                    )
+                  )
+                
+                # Gérer les NA dans reg_7day
+                df_temp <- df_temp %>%
+                  mutate(
+                    reg_7day = case_when(
+                      is.na(reg_7day) & pres == 0 ~ 1,
+                      is.na(reg_7day) & pres == 1 ~ 2,
+                      TRUE ~ reg_7day
+                    ),
+                    pres = if_else(reg_7day == 0 & pres == 0, 3, pres)
+                  )
+                
+                count_3 <- sum(df_temp$pres == 3)
+                
+                # Vérifier si count_3 dépasse le seuil et passer à la boucle suivante si c'est le cas
+                if (is.na(count_3) || count_3 > genus_select) {
+                  next
+                }
+                
+                diff <- abs(count_3 - genus_select)
+                
+                if (diff < min_diff) {
+                  min_diff <- diff
+                  best_df <- df_temp
+                  
+                }
+              }
+            }
+          }
+          final_best_df <- df_temp
+        } 
+        
+        # Split par pres pour la couleur dans le plot
         incProgress(4/6, detail = "Préparation de la table...")
-
+        
         output$mytable <- gt::render_gt({
-          df_rangement_priority <- df_rangement %>% filter(pres == 3) %>% select(genus)
-
+          df_rangement_priority <- final_best_df %>% filter(pres == 3) %>% select(genus)
+          
           length_to_pad <- (3 - length(df_rangement_priority$genus) %% 3) %% 3
           padded_genus <- c(df_rangement_priority$genus, rep(NA, length_to_pad))
-
+          
           matrix_genus <- matrix(padded_genus, ncol = 3, byrow = TRUE)
           df_table <- as.data.frame(matrix_genus)
-
+          
           gt(df_table) %>%
             gt::tab_header(
               title = md("Genus to select")
             )
         })
-
+        
         output$downloadTable <- downloadHandler(
           filename = function() {
             paste("Priority_", family_test, ".csv", sep = "")
@@ -243,17 +372,17 @@ observeEvent(c(input$action, input$step, input$window), {
             write.csv(df_rangement_priority, file, row.names = FALSE)
           }
         )
-
+        
         incProgress(5/6, detail = "Préparation de l'intrigue de la famille...")
-
+        
         output$FamilyPlot <- renderPlot({
           isolate({
             tree_family <- ggtree::ggtree(tree, layout = "circular") +
               theme(legend.position = "right", legend.key.size = unit(3, "lines")) +
               geom_tiplab(size = 3, offset = 0.5)
-
-            genus_cover <- split(df_rangement$genus, df_rangement$pres)
-
+            
+            genus_cover <- split(final_best_df$genus, final_best_df$pres)
+            
             tree_family <- ggtree::groupOTU(tree_family, genus_cover, "species") + aes(color = species) +
               theme(
                 legend.position = "right",
@@ -266,27 +395,105 @@ observeEvent(c(input$action, input$step, input$window), {
                 labels = c("Not available", "Available", "Priority"),
                 breaks = c("0", "1", "3")
               ) +
-              labs(title = "Tree of ",family_test) +
-              theme(legend.title = element_text(size = 20),  
-                   legend.text = element_text(size = 15)) 
-
+              labs(title = paste("Tree of", family_test)) +
+              theme(
+                legend.title = element_text(size = 20),
+                legend.text = element_text(size = 15)
+              )
+            
             print(tree_family)
-
+            
             output$downloadFamilyPlot <- downloadHandler(
               filename = function() {
                 paste0("Tree_plot_", family_test, ".pdf")
               },
               content = function(file) {
-              ggsave(filename = file, plot = tree_family, device = "pdf", width = 40, height = 40, units = "cm")
+                ggsave(filename = file, plot = tree_family, device = "pdf", width = 40, height = 40, units = "cm")
               }
             )
           })
         })
-
+        
         incProgress(6/6, detail = "Finalisation...")
+      
       }
-    })
+    } else {
+      # Directly go to split by 'pres' for plot coloring
+      # Split par pres pour la couleur dans le plot
+      
+      incProgress(4/6, detail = "Préparation de la table...")
+      
+      output$mytable <- gt::render_gt({
+        df_rangement_priority <- df_rangement %>% filter(pres == 3) %>% select(genus)
+        
+        length_to_pad <- (3 - length(df_rangement_priority$genus) %% 3) %% 3
+        padded_genus <- c(df_rangement_priority$genus, rep(NA, length_to_pad))
+        
+        matrix_genus <- matrix(padded_genus, ncol = 3, byrow = TRUE)
+        df_table <- as.data.frame(matrix_genus)
+        
+        gt(df_table) %>%
+          gt::tab_header(
+            title = md("Genus to select")
+          )
+      })
+      
+      output$downloadTable <- downloadHandler(
+        filename = function() {
+          paste("Priority_", family_test, ".csv", sep = "")
+        },
+        content = function(file) {
+          df_rangement_priority <- df_rangement %>% filter(pres == 3) %>% select(genus)
+          write.csv(df_rangement_priority, file, row.names = FALSE)
+        }
+      )
+      
+      incProgress(5/6, detail = "Préparation de l'intrigue de la famille...")
+      
+      output$FamilyPlot <- renderPlot({
+        isolate({
+          tree_family <- ggtree::ggtree(tree, layout = "circular") +
+            theme(legend.position = "right", legend.key.size = unit(3, "lines")) +
+            geom_tiplab(size = 3, offset = 0.5)
+          
+          genus_cover <- split(final_best_df$genus, final_best_df$pres)
+          
+          tree_family <- ggtree::groupOTU(tree_family, genus_cover, "species") + aes(color = species) +
+            theme(
+              legend.position = "right",
+              legend.text = element_text(size = 14),
+              legend.title = element_text(size = 14)
+            ) +
+            scale_color_manual(
+              name = "Genus",
+              values = c("0" = "orange", "1" = "darkgreen", "3" = "blue"),
+              labels = c("Not available", "Available", "Priority"),
+              breaks = c("0", "1", "3")
+            ) +
+            labs(title = paste("Tree of", family_test)) +
+            theme(
+              legend.title = element_text(size = 20),
+              legend.text = element_text(size = 15)
+            )
+          
+          print(tree_family)
+          
+          output$downloadFamilyPlot <- downloadHandler(
+            filename = function() {
+              paste0("Tree_plot_", family_test, ".pdf")
+            },
+            content = function(file) {
+              ggsave(filename = file, plot = tree_family, device = "pdf", width = 40, height = 40, units = "cm")
+            }
+          )
+        })
+      })
+      
+      incProgress(6/6, detail = "Finalisation...")
+    }
+    
   })
+})
 
 ##################################################################
   observeEvent(input$action, {
@@ -962,6 +1169,3 @@ output$downloadTablespecies <- downloadHandler(
 
 }
 
-
-
-shinyApp(server = server, ui =ui)
