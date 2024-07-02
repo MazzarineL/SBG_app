@@ -127,10 +127,10 @@ whit_part1 <- rbind(whit_part1.1, whit_part1.2,whit_part1.3,whit_part1.4)
 
           output$downloadFullPlot <- downloadHandler(
             filename = function() {
-              paste0("Tree_garden_plot_", Sys.Date(), ".pdf")
+              paste0("Tree_garden_plot_", Sys.Date(), ".png")
             },
             content = function(file) {
-               ggsave(filename = file, plot = g2, device = "pdf", width = 50, height = 50, units = "cm")
+               ggsave(filename = file, plot = g2, device = "png", width = 50, height = 50, units = "cm")
 
             }
           )
@@ -145,7 +145,7 @@ observeEvent(c(input$action, input$genus_select), {
   withProgress(message = 'Chargement des données...', value = 0, {
     req(input$Garden != "")
     
-    family_test <- input$family
+    family_test <-input$family
     output$onlygenus <- NULL
     output$mytable <- NULL
     output$FamilyPlot <- NULL
@@ -155,17 +155,7 @@ observeEvent(c(input$action, input$genus_select), {
     input_code <- input$Garden
     cover_genus_garden <- cover_genus_garden_full
     
-    # Nouvelle condition ajoutée
-    if (genus_select > sum(cover_genus_garden$pres == 0)) {
-      cover_genus_garden$pres[cover_genus_garden$pres == 0] <- 3
-      final_best_df <- cover_genus_garden
-      # Skip the rest of the script and proceed directly to split by 'pres' for plot coloring
-      goto_split <- TRUE
-    } else {
-      goto_split <- FALSE
-    }
-    
-    if (!goto_split) {
+
       # Continue with the rest of the script
       
       # Étape de mise à jour de la progression
@@ -187,6 +177,7 @@ observeEvent(c(input$action, input$genus_select), {
       incProgress(2/6, detail = "Filtrage des données...")
       
       unique_genera_count <- cover_genus_garden_full %>%
+
         filter(family == family_test) %>%
         distinct(genus) %>%
         nrow()
@@ -345,30 +336,50 @@ observeEvent(c(input$action, input$genus_select), {
           final_best_df <- df_temp
         } 
         
+
         # Split par pres pour la couleur dans le plot
         incProgress(4/6, detail = "Préparation de la table...")
         
-        output$mytable <- gt::render_gt({
-          df_rangement_priority <- final_best_df %>% filter(pres == 3) %>% select(genus)
-          
-          length_to_pad <- (3 - length(df_rangement_priority$genus) %% 3) %% 3
-          padded_genus <- c(df_rangement_priority$genus, rep(NA, length_to_pad))
-          
-          matrix_genus <- matrix(padded_genus, ncol = 3, byrow = TRUE)
-          df_table <- as.data.frame(matrix_genus)
-          
-          gt(df_table) %>%
-            gt::tab_header(
-              title = md("Genus to select")
-            )
-        })
-        
+output$mytable <- gt::render_gt({
+  df_rangement_priority <- final_best_df %>%
+    dplyr::filter(pres == 3) %>%
+    dplyr::select(genus)
+  
+  length_to_pad <- (3 - length(df_rangement_priority$genus) %% 3) %% 3
+  padded_genus <- c(df_rangement_priority$genus, rep(NA, length_to_pad))
+  
+  matrix_genus <- matrix(padded_genus, ncol = 3, byrow = TRUE)
+  df_table <- as.data.frame(matrix_genus)
+  
+  df_table <- unique(df_table)
+  
+  gt(df_table) %>%
+    gt::tab_header(
+      title = md("Genus to select")
+    ) %>%
+    # Apply themes and formatting here
+    gt::tab_style(
+      style = gt::cell_text(),
+      locations = gt::cells_body(),
+      text_transform = "uppercase", # Example: transform text to uppercase
+      font = "Arial", # Example: specify font
+      color = "black", # Example: specify text color
+      background = "lightgray", # Example: specify background color
+      align = "center" # Example: align text to center
+    ) %>%
+    gt::tab_options(
+      table.width = "100%", # Example: set table width
+      table.border.top.width = px(2), # Example: set top border width
+      table.border.bottom.width = px(2) # Example: set bottom border width
+    )
+})
+
         output$downloadTable <- downloadHandler(
           filename = function() {
             paste("Priority_", family_test, ".csv", sep = "")
           },
           content = function(file) {
-            df_rangement_priority <- df_rangement %>% filter(pres == 3) %>% select(genus)
+            df_rangement_priority <- df_rangement %>% dplyr::filter(pres == 3) %>% dplyr::select(genus)
             write.csv(df_rangement_priority, file, row.names = FALSE)
           }
         )
@@ -405,10 +416,10 @@ observeEvent(c(input$action, input$genus_select), {
             
             output$downloadFamilyPlot <- downloadHandler(
               filename = function() {
-                paste0("Tree_plot_", family_test, ".pdf")
+                paste0("Tree_plot_", family_test, ".jpg")
               },
               content = function(file) {
-                ggsave(filename = file, plot = tree_family, device = "pdf", width = 40, height = 40, units = "cm")
+                ggsave(filename = file, plot = tree_family, device = "jpg", width = 40, height = 40, units = "cm")
               }
             )
           })
@@ -417,16 +428,16 @@ observeEvent(c(input$action, input$genus_select), {
         incProgress(6/6, detail = "Finalisation...")
       
       }
-    } else {
+
       # Directly go to split by 'pres' for plot coloring
       # Split par pres pour la couleur dans le plot
       
       incProgress(4/6, detail = "Préparation de la table...")
       
       output$mytable <- gt::render_gt({
-        df_rangement_priority <- df_rangement %>% filter(pres == 3) %>% select(genus)
+        df_rangement_priority <- final_best_df %>% dplyr::filter(pres == 3) %>% dplyr::select(genus)
         
-        length_to_pad <- (3 - length(df_rangement_priority$genus) %% 3) %% 3
+        length_to_pad <- (3 - length(final_best_df$genus) %% 3) %% 3
         padded_genus <- c(df_rangement_priority$genus, rep(NA, length_to_pad))
         
         matrix_genus <- matrix(padded_genus, ncol = 3, byrow = TRUE)
@@ -443,7 +454,7 @@ observeEvent(c(input$action, input$genus_select), {
           paste("Priority_", family_test, ".csv", sep = "")
         },
         content = function(file) {
-          df_rangement_priority <- df_rangement %>% filter(pres == 3) %>% select(genus)
+          df_rangement_priority <- df_rangement %>% dplyr::filter(pres == 3) %>% dplyr::select(genus)
           write.csv(df_rangement_priority, file, row.names = FALSE)
         }
       )
@@ -480,17 +491,17 @@ observeEvent(c(input$action, input$genus_select), {
           
           output$downloadFamilyPlot <- downloadHandler(
             filename = function() {
-              paste0("Tree_plot_", family_test, ".pdf")
+              paste0("Tree_plot_", family_test, ".png")
             },
             content = function(file) {
-              ggsave(filename = file, plot = tree_family, device = "pdf", width = 40, height = 40, units = "cm")
+              ggsave(filename = file, plot = tree_family, device = "png", width = 40, height = 40, units = "cm")
             }
           )
         })
       })
       
       incProgress(6/6, detail = "Finalisation...")
-    }
+    
     
   })
 })
@@ -624,10 +635,10 @@ print(whit)
 
 output$dlwhitplot <- downloadHandler(
       filename = function() {
-        paste0("whit_full_plot_", Sys.Date(), ".pdf")
+        paste0("whit_full_plot_", Sys.Date(), ".jpg")
       },
       content = function(file) {
-        ggsave(filename = file, plot = whit, device = "pdf", width = 14, height = 10)
+        ggsave(filename = file, plot = whit, device = "jpg", width = 14, height = 10)
       }
         )
       })
@@ -696,10 +707,10 @@ print(whitfamily)
 
  output$dlwhitplotFamily <- downloadHandler(
           filename = function() {
-            paste0("whit_plot_", family_test, ".pdf")
+            paste0("whit_plot_", family_test, ".jpg")
           },
           content = function(file) {
-            ggsave(filename = file, plot = whitfamily, device = "pdf", width = 14, height = 10)
+            ggsave(filename = file, plot = whitfamily, device = "jpg", width = 14, height = 10)
           }
         )
       })
@@ -779,10 +790,10 @@ print(whitfamilyKernel)
 
  output$dlwhitplotFamilyKernel <- downloadHandler(
           filename = function() {
-            paste0("whit_plot_Kernel_", family_test, ".pdf")
+            paste0("whit_plot_Kernel_", family_test, ".jpg")
           },
           content = function(file) {
-            ggsave(filename = file, plot = whitfamilyKernel, device = "pdf", width = 14, height = 10)
+            ggsave(filename = file, plot = whitfamilyKernel, device = "jpg", width = 14, height = 10)
           }
         )
       })
@@ -1072,7 +1083,7 @@ output$mapsSimple <- renderPlot({
   # Fonction pour télécharger la carte
 output$downloaddistrib <- downloadHandler(
   filename = function() {
-    paste("distribution_map", Sys.Date(), ".pdf", sep = "")
+    paste("distribution_map", Sys.Date(), ".jpg", sep = "")
   },
   content = function(file) {
 
@@ -1090,7 +1101,7 @@ output$downloaddistrib <- downloadHandler(
     legend.key.size = unit(2, "cm")) +
     coord_fixed(ratio = 1.2, xlim = c(min(world$long) - 20, max(world$long) + 20), ylim = c(min(world$lat) - 10, max(world$lat) + 10))
     
-    ggsave(file, plot = carte, device = "pdf", width = 40, height = 30, units = "in",limitsize = FALSE)
+    ggsave(file, plot = carte, device = "jpg", width = 40, height = 30, units = "in",limitsize = FALSE)
   }
 )
 
@@ -1114,6 +1125,20 @@ output$downloaddistrib <- downloadHandler(
     cover_species$garden <- ifelse(cover_species$garden == "LausanNeuchâtel", 
                                    "Lausanne", 
                                    cover_species$garden)
+
+
+  # Étape 1 : Identifier les doublons par 'species' et 'garden' et compter les occurrences
+  cover_species_summary <- cover_species %>%
+  group_by(species, garden) %>%
+  summarize(pres = n(), .groups = 'drop')
+
+  # Étape 2 : Supprimer les doublons en gardant un seul exemplaire avec le compte des occurrences
+  cover_species <- cover_species %>%
+  select(-pres) %>%
+  distinct(species, garden, .keep_all = TRUE) %>%
+  left_join(cover_species_summary, by = c("species", "garden"))
+
+  cover_species <- rename(cover_species, `individual available` = pres)
 
 
   observe({

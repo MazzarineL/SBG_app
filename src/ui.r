@@ -4,29 +4,128 @@ library(plotly)
 library(curl)
 library(leaflet)
 
-cover_species_garden_full <- read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/cover_species_garden_500.csv") )
-
+cover_species_garden_full <- read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/cover_species_garden_500.csv"))
 
 ui <- dashboardPage(
-  dashboardHeader(title = "Cover Botanical Garden"),
+  dashboardHeader(
+    title = tags$div(style = "font-size: 18px", "Cover Botanical Garden")
+  ),
   dashboardSidebar(
+    tags$style(HTML("
+      .filters-section {
+        background-color: #008d4c;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+      }
+      .sidebar-menu {
+        margin-top: 15px;
+      }
+    ")),
     sidebarMenu(
-      menuItem("Filters", tabName = "filters", icon = icon("filter")),
-      checkboxGroupInput(inputId = "Garden", label = "Select Garden", choices = c("Neuchâtel" = "ne", "Fribourg" = "fr", "Lausanne" = "la")),
-      selectInput(inputId = "family", label = "Family to Test", choices = unique(cover_species_garden_full$family), selected = ""),
-      actionButton(inputId = "action", label = "Go!", icon = icon("play"), style = "color: #fff; background-color: #27ae60;"),
-      menuItem("Garden Tree", tabName = "garden_tree", icon = icon("tree"), selected = TRUE),
-      menuItem("Family Tree", tabName = "family_tree", icon = icon("leaf")),
-      menuItem("Whitakker Garden plot", tabName = "whit_garden_plot", icon = icon("chart-area")),
-      menuItem("Whitakker Family plot", tabName = "whit_family_plot", icon = icon("chart-bar")),
-      menuItem("Species Selection", tabName = "species_selection", icon = icon("dna")),
-      menuItem("Species distribution", tabName = "species_distribution", icon = icon("map"))
+      div(class = "filters-section",
+          menuItem("Filters", tabName = "filters", icon = icon("filter"), selected = TRUE),
+          checkboxGroupInput(inputId = "Garden", label = "Select Garden", choices = c("Neuchâtel" = "ne", "Fribourg" = "fr", "Lausanne" = "la")),
+          selectInput(inputId = "family", label = "Family to Test", choices = unique(cover_species_garden_full$family), selected = ""),
+          actionButton(inputId = "action", label = "Go!", icon = icon("play"), style = "color: #fff; background-color: #222c32;")
+      ),
+      menuItem("Phylogenetic", icon = icon("sitemap"),
+               menuSubItem("Garden Tree", tabName = "garden_tree", icon = icon("tree")),
+               menuSubItem("Family Tree", tabName = "family_tree", icon = icon("leaf"))
+      ),
+      menuItem("Biome", icon = icon("globe"),
+               menuSubItem("Whitakker Garden plot", tabName = "whit_garden_plot", icon = icon("chart-area")),
+               menuSubItem("Whitakker Family plot", tabName = "whit_family_plot", icon = icon("chart-bar"))
+      ),
+      menuItem("Quick Search", icon = icon("search"),
+               menuSubItem("Species Selection", tabName = "species_selection", icon = icon("dna")),
+               menuSubItem("Species World Distribution", tabName = "species_distribution", icon = icon("map"))
+      )
     )
   ),
   dashboardBody(
+    tags$head(tags$style(HTML('
+      /* Logo and top bar */
+      .skin-blue .main-header .logo {
+        background-color: #008d4c; /* Green */
+      }
+
+      .skin-blue .main-header .navbar {
+        background-color: #00a75a; /* Light Green */
+      }
+
+      /* Sidebar */
+      .skin-blue .main-sidebar {
+        background-color: #222c32; /* Dark Green */
+      }
+
+      /* Active tab */
+      .skin-blue .main-sidebar .sidebar .sidebar-menu .active a {
+        background-color: #008d4c; /* Darker Green */
+      }
+
+      /* Other links */
+      .skin-blue .main-sidebar .sidebar .sidebar-menu a {
+        background-color: #222c32; /* Lighter Green */
+        color: #ffffff;
+      }
+
+      /* Hovered links */
+      .skin-blue .main-sidebar .sidebar .sidebar-menu a:hover {
+        background-color: #008d4c; /* Green */
+      }
+
+      /* Toggle button hovered */
+      .skin-blue .main-header .navbar .sidebar-toggle:hover {
+        background-color: #008d4c; /* Green */
+      }
+
+       /* Changer la couleur de lencadrement de la boîte */
+          .tab-pane.active .box {
+            border-color: #00a75a; /* Couleur de la bordure bleue */
+          }
+          
+          /* Changer la couleur de la zone avec le titre dans la boîte */
+          .tab-pane.active .box .box-header {
+          background-color: #00a75a; /* Couleur de fond pour la zone avec le titre */
+          color:  #ffffff; /* Couleur du texte dans la zone avec le titre */
+          }
+        
+        /* Changer la couleur du bouton Download  */
+        .tab-pane.active .btn-primary {
+          background-color: #00a75a; /* Vert */
+          border-color: #00a75a; /* Couleur de la bordure identique pour correspondre */
+        }
+    '))),
     tabItems(
+  tabItem(tabName = "filters",
+    fluidRow(
+      tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 30px; text-align: center;",
+        "Welcome to the Botanical Garden Coverage Application."
+      ),
+      tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
+        "To get started, choose one or more gardens."
+      ),
+      tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
+        "Select a plant family of interest."
+      ),
+      tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
+        "Launch the script with the 'Go' button."
+      ),
+      tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
+        "Click on the various dropdown menus to see your results."
+      ),
+      tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
+        "If you find a bug or have any comments on the ergonomics or improvements for the app, and if you work in a botanical garden and want to see your data included in the application, you can contact me at mazzarine.laboureau@unine.ch."
+      ),
+      tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
+        "All the data and the script are available on my ",
+        a(href = "https://github.com/MazzarineL/SBG_app", "GitHub page.")
+      )
+    )
+  ),
       tabItem(tabName = "garden_tree",
-              helpText("This section displays the Garden Tree plot."),
+        helpText("This section displays the Garden Tree plot."),
         fluidRow(
           box(title = "Garden Tree", status = "primary", solidHeader = TRUE, width = 12,
             plotOutput(outputId = "treePlot", height = "600px"),
@@ -36,29 +135,29 @@ ui <- dashboardPage(
           )
         )
       ),
-tabItem(tabName = "family_tree",
-  helpText("This section presents the Family Tree plot, highlighting the genus names in blue if they are included in the botanical garden, thereby enhancing the coverage optimization for the family. You can adjust the window size and the step for change the calcul parameters."),
-  fluidRow(
-    box(title = "Family Tree", status = "primary", solidHeader = TRUE, width = 12,
-      sliderInput(inputId = "genus_select", label = "Number of genus to select", min = 1, max = 30, value = 5),
-      tags$div(style = "color: #ff0000; font-size: 14px; font-weight: bold; margin-top: 10px;",
-        "It may happen that the number of genera selected cannot be perfectly matched to your request, in which case the model will choose the number of genera closest to your pre-selection, maximizing genus coverage.
-        furthermore, if you've chosen a high number of genus and the tree has no blue branches, this means that you've reached the maximum number of selectable genus and there are none to select as a priority"
-      ),
-      textOutput("textgenus"),
-      tableOutput("onlygenus"),
-      plotOutput(outputId = "FamilyPlot", height = "800px"),  
-      div(style = "margin-top: 20px;",
-        tableOutput("mytable"),
-        tags$style(HTML("
-          #mytable table {
-            width: 100%;
-          }
-          #mytable td {
-            width: 33%;
-          }
-        "))
-      ),
+      tabItem(tabName = "family_tree",
+        helpText("This section presents the Family Tree plot, highlighting the genus names in blue if they are included in the botanical garden, thereby enhancing the coverage optimization for the family. You can adjust the window size and the step for change the calcul parameters."),
+        fluidRow(
+          box(title = "Family Tree", status = "primary", solidHeader = TRUE, width = 12,
+            sliderInput(inputId = "genus_select", label = "Number of genus to select", min = 1, max = 30, value = 5),
+            tags$div(style = "color: #000000 font-size: 14px; font-weight: bold; margin-top: 10px;",
+              "It may happen that the number of genera selected cannot be perfectly matched to your request, in which case the model will choose the number of genera closest to your pre-selection, maximizing genus coverage.
+              furthermore, if you've chosen a high number of genus and the tree has no blue branches, this means that you've reached the maximum number of selectable genus and there are none to select as a priority"
+            ),
+            textOutput("textgenus"),
+            tableOutput("onlygenus"),
+            plotOutput(outputId = "FamilyPlot", height = "800px"),  
+            div(style = "margin-top: 20px;",
+              tableOutput("mytable"),
+              tags$style(HTML("
+                #mytable table {
+                  width: 100%;
+                }
+                #mytable td {
+                  width: 33%;
+                }
+              "))
+            ),
             div(class = "btn-group",
               downloadButton(outputId = "downloadFamilyPlot", label = "Download Family Tree Plot", class = "btn btn-primary"),
               tags$br(), tags$br(),
@@ -68,7 +167,7 @@ tabItem(tabName = "family_tree",
         )
       ),
       tabItem(tabName = "whit_garden_plot",
-              helpText("This section displays the Whitakker plot for the gardens selected."),
+        helpText("This section displays the Whitakker plot for the gardens selected."),
         fluidRow(
           box(title = "Whitakker Garden Plot", status = "primary", solidHeader = TRUE, width = 12,
             plotOutput(outputId = "whitplot", height = "1000px"),
@@ -79,7 +178,7 @@ tabItem(tabName = "family_tree",
         )
       ),
       tabItem(tabName = "whit_family_plot",
-              helpText("This section displays the Whitakker plot for the family selected."),
+        helpText("This section displays the Whitakker plot for the family selected."),
         fluidRow(
           box(title = "Whitakker Family Plot", status = "primary", solidHeader = TRUE, width = 12,
             plotOutput(outputId = "whitplotFamily", height = "1000px"),
@@ -103,7 +202,7 @@ tabItem(tabName = "family_tree",
         )
       ),
       tabItem(tabName = "species_selection",
-              helpText("This section displays a table indicating the locations of each family, genus, or species across various botanical gardens."),
+        helpText("This section displays a table indicating the locations of each family, genus, or species across various botanical gardens."),
         fluidRow(
           box(title = "Species Selection", status = "primary", solidHeader = TRUE, width = 12,
             selectInput("selected_family", "Family", choices = NULL),
@@ -118,7 +217,7 @@ tabItem(tabName = "family_tree",
         )
       ),
       tabItem(tabName = "species_distribution",
-              helpText("This section displays the species distribution in the world."),
+        helpText("This section displays the species distribution in the world."),
         fluidRow(
           box(title = "Species Distribution", status = "primary", solidHeader = TRUE, width = 12,
             selectInput("GPS_genus", "Select a genus:", choices = NULL),
@@ -135,3 +234,6 @@ tabItem(tabName = "family_tree",
     )
   )
 )
+
+
+
