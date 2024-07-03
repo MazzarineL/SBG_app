@@ -220,10 +220,14 @@ ui <- dashboardPage(
         helpText("This section displays the species distribution in the world."),
         fluidRow(
           box(title = "Species Distribution", status = "primary", solidHeader = TRUE, width = 12,
+          tags$div(style = "color: #000000 font-size: 14px; font-weight: bold; margin-top: 10px;",
+              "Some species do not have location data available on GBIF and iNaturalist; in such cases, they will not appear on the map."
+            ),
+            tags$br(), tags$br(),
+            selectInput("GPS_family", "Select a family", choices = NULL),
             selectInput("GPS_genus", "Select a genus:", choices = NULL),
             selectInput("GPS_species", "Select a species:", choices = NULL, multiple = TRUE),
             actionButton("goButton", "Go"),
-            textOutput("errortext"),
             leafletOutput("map", width = "100%", height = "500px"),
             tags$br(), tags$br(),
             plotOutput(outputId = "mapsSimple", height = "1000px"),
@@ -234,6 +238,5 @@ ui <- dashboardPage(
     )
   )
 )
-
 
 

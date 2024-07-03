@@ -30,6 +30,10 @@ whit_part1.3 <-  read.csv(curl::curl("https://raw.githubusercontent.com/Mazzarin
 whit_part1.4 <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/data_env_gift_part1.4.csv"), sep = ",")
 whit_part2 <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/data_env_gift_part4.csv"), sep = ";")
 
+all_species_taxo <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/all_species_taxonomy_full.csv"), sep = ",")
+
+
+
 whit_part1.4 <- whit_part1.4 %>% dplyr::select(-biome)
 
 whit_part1 <- rbind(whit_part1.1, whit_part1.2,whit_part1.3,whit_part1.4)  
@@ -885,22 +889,27 @@ output$whitplotSelect <- renderPlotly({
   ##############################################
 
 # Filtrer les données en fonction du jardin sélectionné
+
+observe({
+  updateSelectInput(session, "GPS_family", choices = unique(all_species_taxo$family))
+})
+
 filtered_data <- reactive({
-  req(input$Garden)
-  cover_species_garden_full %>%
-    filter(garden %in% input$Garden)
+  req(input$GPS_family)  
+  all_species_taxo %>%
+    filter(family %in% input$GPS_family)
 })
 
 # Mettre à jour les choix de genre en fonction de la famille sélectionnée
-observeEvent(input$family, {
+observeEvent(input$GPS_family, {
   req(filtered_data())
-  updateSelectInput(session, "GPS_genus", choices = unique(filtered_data() %>% filter(family == input$family) %>% pull(genus)))
+  updateSelectInput(session, "GPS_genus", choices = unique(filtered_data() %>% filter(family == input$GPS_family) %>% pull(genus)))
 })
 
 # Mettre à jour les choix d'espèce en fonction du genre sélectionné
 observeEvent(input$GPS_genus, {
   req(filtered_data())
-  updateSelectInput(session, "GPS_species", choices = unique(filtered_data() %>% filter(family == input$family & genus == input$GPS_genus) %>% pull(species)))
+  updateSelectInput(session, "GPS_species", choices = unique(filtered_data() %>% filter(family == input$GPS_family & genus == input$GPS_genus) %>% pull(species)))
 })
 
 # Fonction réactive pour le tracé de la carte
@@ -993,53 +1002,11 @@ observeEvent(input$goButton, {
           output$errortext <- renderText({
             paste("Species", species_name, "don't have any data")
           })
-        } else {
-          # Si une autre erreur se produit, imprimez l'erreur complète
-          cat("Error:", e$message, "\n")
         }
       })
     }
   })
 
-  cover_map <- cover_species_garden_full
-
-  unique_species <- unique(cover_map$species)
-  for (species in unique_species) {
-    # Sélectionner les lignes correspondantes dans select_taxo
-    select_taxo <- cover_map[cover_map$species == species, ]
-    
-    # Extraire les valeurs uniques dans la colonne garden
-    unique_gardens <- unique(select_taxo$garden)
-    
-    # Trier les valeurs uniques par ordre alphabétique et les combiner en une chaîne
-    sorted_gardens <- sort(unique_gardens)
-    code_garden <- paste(sorted_gardens, collapse = "_")
-    
-    # Mettre cette chaîne dans cover_map$code_garden pour le species en cours
-    cover_map$code_garden[cover_map$species == species] <- code_garden
-  }
-
-  cover_map <- cover_map %>% dplyr::distinct(species, .keep_all = TRUE)
-  all_gps_data <- merge(all_gps_data, cover_map, by.x = "species_gps", by.y = "species")
-  all_gps_data$code_garden <- as.factor(all_gps_data$code_garden)
-
-  all_gps_data$code_garden <- gsub("fr", "Fribourg", gsub("ne", "Neuchâtel", gsub("la", "Lausanne", all_gps_data$code_garden)))
-
-  all_gps_data$code_garden <- ifelse(all_gps_data$code_garden == "LausanNeuchâtel_Neuchâtel", 
-                                   "Lausanne_Neuchâtel", 
-                                   all_gps_data$code_garden)
-
-  all_gps_data$code_garden <- ifelse(all_gps_data$code_garden == "LausanNeuchâtel", 
-                                   "Lausanne", 
-                                   all_gps_data$code_garden)
-
-  all_gps_data$code_garden <- ifelse(all_gps_data$code_garden == "Fribourg_LausanNeuchâtel_Neuchâtel", 
-                                   "Fribourg_Lausanne_Neuchâtel", 
-                                   all_gps_data$code_garden)
-
- all_gps_data$code_garden <- ifelse(all_gps_data$code_garden == "Fribourg_LausanNeuchâtel", 
-                                   "Fribourg_Lausanne", 
-                                   all_gps_data$code_garden)
 
 
  
@@ -1072,7 +1039,7 @@ output$mapsSimple <- renderPlot({
 
   ggplot() +
     geom_polygon(data = world, aes(x = long, y = lat, group = group), fill = "lightgray", color = "white") +
-    geom_point(data = all_gps_data, aes(x = longitude, y = latitude, color = species_gps, shape = code_garden), size = 1.5) +
+    geom_point(data = all_gps_data, aes(x = longitude, y = latitude, color = species_gps), size = 1.5) +
     species_palette +
     labs(x = "Longitude", y = "Latitude", color = "Species", shape = "Garden") +
     theme_minimal() +
@@ -1091,7 +1058,7 @@ output$downloaddistrib <- downloadHandler(
 
   carte <- ggplot() +
     geom_polygon(data = world, aes(x = long, y = lat, group = group), fill = "lightgray", color = "white") +
-    geom_point(data = all_gps_data, aes(x = longitude, y = latitude, color = species_gps, shape = code_garden), size = 3) +
+    geom_point(data = all_gps_data, aes(x = longitude, y = latitude, color = species_gps), size = 3) +
     species_palette +
     labs(x = "Longitude", y = "Latitude", color = "Species", shape = "Garden") +
     theme_minimal() +
@@ -1115,6 +1082,9 @@ output$downloaddistrib <- downloadHandler(
 
    cover_species <- cover_species_garden_full
 
+
+   
+
   cover_species$garden <- gsub("fr", "Fribourg", gsub("ne", "Neuchâtel", gsub("la", "Lausanne", cover_species$garden)))
   cover_species$garden <- ifelse(cover_species$garden == "Fribourg_LausanNeuchâtel_Neuchâtel", 
                                    "Fribourg_Lausanne_Neuchâtel", 
@@ -1122,12 +1092,11 @@ output$downloaddistrib <- downloadHandler(
   cover_species$garden <- ifelse(cover_species$garden == "LausanNeuchâtel_Neuchâtel", 
                                    "Lausanne_Neuchâtel", 
                                    cover_species$garden)
-    cover_species$garden <- ifelse(cover_species$garden == "LausanNeuchâtel", 
+  cover_species$garden <- ifelse(cover_species$garden == "LausanNeuchâtel", 
                                    "Lausanne", 
                                    cover_species$garden)
 
-
-  # Étape 1 : Identifier les doublons par 'species' et 'garden' et compter les occurrences
+ # Étape 1 : Identifier les doublons par 'species' et 'garden' et compter les occurrences
   cover_species_summary <- cover_species %>%
   group_by(species, garden) %>%
   summarize(pres = n(), .groups = 'drop')
@@ -1138,7 +1107,18 @@ output$downloaddistrib <- downloadHandler(
   distinct(species, garden, .keep_all = TRUE) %>%
   left_join(cover_species_summary, by = c("species", "garden"))
 
-  cover_species <- rename(cover_species, `individual available` = pres)
+
+   cover_genus <- cover_genus_garden_full
+   cover_genus <- cover_genus[cover_genus$pres == 0, c("family", "genus", "garden", "pres")]
+   cover_genus <- cbind(species = NA, cover_genus)
+
+   cover_species <- rbind(cover_species,cover_genus)
+
+   cover_species <- rename(cover_species, `individual available` = pres)
+
+   cover_species <- cover_species %>%
+  select(species, genus, family, garden, everything())
+
 
 
   observe({
@@ -1155,7 +1135,7 @@ output$downloaddistrib <- downloadHandler(
   
   observe({
     if (!is.null(input$selected_family) && input$selected_family != "" && !is.null(input$selected_genus) && input$selected_genus != "") {
-      updateSelectInput(session, "selected_species", choices = c("", unique(cover_species$species[cover_species_garden_full$family == input$selected_family & cover_species_garden_full$genus == input$selected_genus])))
+      updateSelectInput(session, "selected_species", choices = c("", unique(cover_species$species[cover_species$family == input$selected_family & cover_species$genus == input$selected_genus])))
     } else {
       updateSelectInput(session, "selected_species", choices = c("", NULL))
     }
