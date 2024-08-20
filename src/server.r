@@ -1,13 +1,19 @@
+#install.packages(c("shiny", "rsconnect", "ggplot2", "dplyr", "ggtree", "rotl", 
+#                   "slider", "tidyquant", "gt", "plotbiomes", "rgbif", "sp", 
+#                   "rinat", "RColorBrewer", "curl", "maps"))
 
 library(shiny) 
 library(rsconnect) 
 library(ggplot2) 
 library(dplyr) 
+library(devtools) 
+#BiocManager::install("ggtree")
 library(ggtree) 
 library(rotl)  
 library(slider) 
 library(tidyquant)  
 library(gt)  
+#devtools::install_github("valentinitnelav/plotbiomes")
 library(plotbiomes) 
 library(rgbif) 
 library(sp) 
@@ -15,10 +21,11 @@ library(rinat)
 library(RColorBrewer)
 library(curl) 
 library(maps)
-
+library(Polychrome)
 
 # Définir le serveur
 server <- function(input, output, session) {
+
 
 world <- map_data("world")
 
@@ -29,127 +36,188 @@ whit_part1.2 <-  read.csv(curl::curl("https://raw.githubusercontent.com/Mazzarin
 whit_part1.3 <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/data_env_gift_part3.csv"), sep = ";")
 whit_part1.4 <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/data_env_gift_part1.4.csv"), sep = ",")
 whit_part2 <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/data_env_gift_part4.csv"), sep = ";")
+whit_part1.5 <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/data_env_gift_geneve.csv"), sep = ",")
+
 
 all_species_taxo <-  read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/all_species_taxonomy_full.csv"), sep = ",")
 
 
-
 whit_part1.4 <- whit_part1.4 %>% dplyr::select(-biome)
+whit_part1.5 <- whit_part1.5 %>% dplyr::select(-biome)
 
-whit_part1 <- rbind(whit_part1.1, whit_part1.2,whit_part1.3,whit_part1.4)  
+whit_part1 <- rbind(whit_part1.1, whit_part1.2,whit_part1.3,whit_part1.4,whit_part1.5)  
+
+# Les niveaux dans votre variable code_garden
+family_levels <- replacement_mapping <- c(
+  "fr" ,
+  "ne" ,
+  "la",
+  "ge",
+  "fr_ne",
+  "fr_la" ,
+  "fr_la_ne",
+  "fr_ge" ,
+  "fr_ge_la" ,
+  "fr_ge_la_ne",
+  "fr_ge_ne" ,
+  "ge_la" ,
+  "ge_la_ne" ,
+  "ge_ne" ,
+  "la_ne" ,
+  "NA"
+)
+
+ # colors from palette
+color_values<- c(
+  "#E74C3C",  # Fribourg
+  "#9B59B6",  # Neuchâtel
+  "#3498DB",  # Lausanne
+  "#F39C12",  # Genève
+  "#8E44AD",  # Fribourg and Neuchâtel
+  "#D35400",  # Fribourg and Lausanne
+  "#E67E22",  # Fribourg, Lausanne, and Neuchâtel
+  "#2980B9",  # Fribourg and Genève
+  "#1ABC9C",  # Fribourg, Genève, and Lausanne
+  "#2C3E50",  # Fribourg, Genève, Lausanne, and Neuchâtel
+  "#C0392B",  # Fribourg, Genève, and Neuchâtel
+  "#FF5733",  # Genève and Lausanne
+  "#F1C40F",  # Genève, Lausanne, and Neuchâtel
+  "#16A085",  # Genève and Neuchâtel
+  "#A93226",  # Lausanne and Neuchâtel
+  "#BDC3C7"   # Not available (gris)
+)
+names(color_values) <- family_levels
+
+# Fonction pour générer les labels adaptatifs
+generate_labels <- function(family_levels) {
+  labels <- sapply(family_levels, function(code) {
+    locations <- c()
+    if (grepl("fr", code)) locations <- c(locations, "Fribourg")
+    if (grepl("ge", code)) locations <- c(locations, "Genève")
+    if (grepl("la", code)) locations <- c(locations, "Lausanne")
+    if (grepl("ne", code)) locations <- c(locations, "Neuchâtel")
+    
+    if (length(locations) > 0) {
+      paste("Available in", paste(locations, collapse = ", "))
+    } else {
+      "Not available"
+    }
+  })
+  names(labels) <- family_levels
+  return(labels)
+}
+
+# Générer les labels
+labels <- generate_labels(family_levels)
+
+replacement_mapping <- c(
+  "fr" = "Fribourg",
+  "ne" = "Neuchâtel",
+  "la" = "Lausanne",
+  "ge" = "Genève",
+  "fr_ne" = "Fribourg and Neuchâtel",
+  "fr_la" = "Fribourg and Lausanne",
+  "fr_la_ne" = "Fribourg, Lausanne, and Neuchâtel",
+  "fr_ge" = "Fribourg and Genève",
+  "fr_ge_la" = "Fribourg, Genève, and Lausanne",
+  "fr_ge_la_ne" = "Fribourg, Genève, Lausanne, and Neuchâtel",
+  "fr_ge_ne" = "Fribourg, Genève, and Neuchâtel",
+  "ge_la" = "Genève and Lausanne",
+  "ge_la_ne" = "Genève, Lausanne, and Neuchâtel",
+  "ge_ne" = "Genève and Neuchâtel",
+  "la_ne" = "Lausanne and Neuchâtel",
+  "NA" = "Not available"
+)
 
 
-  observeEvent(input$action, {
-    withProgress(message = 'Chargement des données...', value = 0, {
-      output$treePlot <- NULL
-      req(input$Garden != "")
-      
-      # Initialisation des variables
-      taxonomy_merge <- cover_genus_garden_full
-      input_code <- input$Garden
-      
-      # Mise à jour de la progression
-      incProgress(1/6, detail = "Traitement des codes jardins...")
-      
-      # Si une seule option est sélectionnée
-      if (length(input_code) == 1) {
-        taxonomy_merge$code_garden[!is.na(taxonomy_merge$code_garden)] <- input_code
-        taxonomy_merge$code_garden[taxonomy_merge$pres == 0] <- NA
-      } else {
-        selected_values <- paste(input_code, collapse = "|")
-        taxonomy_merge$code_garden[!grepl(selected_values, taxonomy_merge$code_garden)] <- NA
-        entier <- c("fr", "ne", "la")
-        diff <- setdiff(entier, input_code)
-        taxonomy_merge$code_garden <- gsub(paste(diff, collapse = "|"), "", taxonomy_merge$code_garden)
-        taxonomy_merge$code_garden <- gsub("_+", "_", taxonomy_merge$code_garden)
-        taxonomy_merge$code_garden <- gsub("^_|_$", "", taxonomy_merge$code_garden)
-      }
-      
-      incProgress(2/6, detail = "Filtrage des données...")
-
-      taxonomy_merge$pres[is.na(taxonomy_merge$pres)] <- 0
-      taxonomy_merge <- taxonomy_merge %>%
-        mutate(code_garden = na_if(code_garden, ""))
-
-      taxonomy_merge <- taxonomy_merge[!is.na(taxonomy_merge$ott_id.family), ]
-      
-      incProgress(3/6, detail = "Génération de l'arbre phylogénétique...")
-
-      my_tree <- rotl::tol_induced_subtree(ott_ids = taxonomy_merge$ott_id.family)
-      sp_name <- gsub("_.*", "", my_tree$tip.label)
-      my_tree$tip.label <- sp_name
-      family <- taxonomy_merge$family
-      g <- split(family, taxonomy_merge$code_garden)
-
-      incProgress(4/6, detail = "Création du graphique...")
-
-      output$treePlot <- renderPlot({
-        isolate({
-          tree_plot <- ggtree::ggtree(my_tree, layout = "circular") +
-            geom_tiplab(size = 2, offset = 0.5)
-
-          g2 <- ggtree::groupOTU(tree_plot, g, "family") +
-            aes(color = family) +
-            theme(legend.position = "right") +
-            scale_color_manual(
-              name = "Family",
-              values = c(
-                "fr_ne"    = "orange", 
-                "fr_la"    = "darkgreen", 
-                "fr_la_ne" = "darkblue", 
-                "fr"       = "purple", 
-                "ne"       = "red", 
-                "la"       = "brown",
-                "la_ne"    = "pink",
-                "NA"       = "grey"
-              ),
-              labels = c(
-                "fr_ne"    = "Available in Fribourg and Neuchâtel", 
-                "fr_la"    = "Available in Fribourg and Lausanne", 
-                "fr_la_ne" = "Available in Fribourg, Lausanne, and Neuchâtel", 
-                "fr"       = "Available in Fribourg",
-                "ne"       = "Available in Neuchâtel", 
-                "la"       = "Available in Lausanne",
-                "la_ne"    = "Available in Lausanne and Neuchâtel",
-                "NA"       = "Not available"
-              ),
-              breaks = c(
-                "fr_ne", 
-                "fr_la", 
-                "fr_la_ne", 
-                "fr", 
-                "ne", 
-                "la", 
-                "la_ne", 
-                "NA"
-              )
-            ) +
-            theme(legend.title = element_text(size = 20), 
-                  legend.text = element_text(size = 15)) 
-
-          print(g2)
-
-          output$downloadFullPlot <- downloadHandler(
-            filename = function() {
-              paste0("Tree_garden_plot_", Sys.Date(), ".png")
-            },
-            content = function(file) {
-               ggsave(filename = file, plot = g2, device = "png", width = 50, height = 50, units = "cm")
-
-            }
+observeEvent(input$action, {
+  withProgress(message = 'Loading data...', value = 0, {
+    output$treePlot <- NULL
+    req(input$Garden != "")
+    
+    # Initialize variables
+    taxonomy_merge <- cover_genus_garden_full
+    input_code <- input$Garden
+    
+    # Update progress
+    incProgress(1/6, detail = "Processing garden codes...")
+    
+    # If only one option is selected
+    if (length(input_code) == 1) {
+      taxonomy_merge$code_garden[!is.na(taxonomy_merge$code_garden)] <- input_code
+      taxonomy_merge$code_garden[taxonomy_merge$pres == 0] <- NA
+    } else {
+      selected_values <- paste(input_code, collapse = "|")
+      taxonomy_merge$code_garden[!grepl(selected_values, taxonomy_merge$code_garden)] <- NA
+      entire_codes <- c("fr", "ne", "la", "ge")
+      diff <- setdiff(entire_codes, input_code)
+      taxonomy_merge$code_garden <- gsub(paste(diff, collapse = "|"), "", taxonomy_merge$code_garden)
+      taxonomy_merge$code_garden <- gsub("_+", "_", taxonomy_merge$code_garden)
+      taxonomy_merge$code_garden <- gsub("^_|_$", "", taxonomy_merge$code_garden)
+    }
+    
+    incProgress(2/6, detail = "Filtering data...")
+    
+    taxonomy_merge$pres[is.na(taxonomy_merge$pres)] <- 0
+    taxonomy_merge <- taxonomy_merge %>%
+      mutate(code_garden = na_if(code_garden, ""))
+    
+    taxonomy_merge <- taxonomy_merge[!is.na(taxonomy_merge$ott_id.family), ]
+    
+    incProgress(3/6, detail = "Generating phylogenetic tree...")
+ 
+    my_tree <- rotl::tol_induced_subtree(ott_ids = taxonomy_merge$ott_id.family)
+    sp_name <- gsub("_.*", "", my_tree$tip.label)
+    my_tree$tip.label <- sp_name
+    family <- taxonomy_merge$family
+    g <- split(family, taxonomy_merge$code_garden)
+    
+    incProgress(4/6, detail = "Creating plot...")
+    
+    output$treePlot <- renderPlot({
+      isolate({
+        tree_plot <- ggtree::ggtree(my_tree, layout = "circular") +
+          geom_tiplab(size = 2, offset = 0.5)
+        
+        g2 <- ggtree::groupOTU(tree_plot, g, "family") +
+          aes(color = family) +
+          theme(legend.position = "right") +
+          scale_color_manual(
+            name = "Family",
+            values = color_values,  
+            labels = labels,        
+            breaks = family_levels  
+          ) +
+          theme(
+            legend.title = element_text(size = 20),
+            legend.text = element_text(size = 15)
           )
-        })
+        
+        print(g2)
+        
+        output$downloadFullPlot <- downloadHandler(
+          filename = function() {
+            paste0("Tree_garden_plot_", Sys.Date(), ".pdf")
+          },
+          content = function(file) {
+            ggsave(filename = file, plot = g2, device = "pdf", width = 50, height = 50, units = "cm")
+          }
+        )
       })
     })
+    
+    incProgress(5/6, detail = "Finalizing...")
   })
+})
+
 
 
 ############################################
 observeEvent(c(input$action, input$genus_select), {
-  withProgress(message = 'Chargement des données...', value = 0, {
+  withProgress(message ='Loading data...', value = 0, {
     req(input$Garden != "")
     
-    family_test <-input$family
+    family_test <- input$family
     output$onlygenus <- NULL
     output$mytable <- NULL
     output$FamilyPlot <- NULL
@@ -159,11 +227,21 @@ observeEvent(c(input$action, input$genus_select), {
     input_code <- input$Garden
     cover_genus_garden <- cover_genus_garden_full
     
-
+    # Nouvelle condition ajoutée
+    if (genus_select > sum(cover_genus_garden$pres == 0)) {
+      cover_genus_garden$pres[cover_genus_garden$pres == 0] <- 3
+      final_best_df <- cover_genus_garden
+      # Skip the rest of the script and proceed directly to split by 'pres' for plot coloring
+      goto_split <- TRUE
+    } else {
+      goto_split <- FALSE
+    }
+    
+    if (!goto_split) {
       # Continue with the rest of the script
       
       # Étape de mise à jour de la progression
-      incProgress(1/6, detail = "Préparation des données...")
+      incProgress(1/6, detail = "Preparing data...")
       
       if (length(input_code) == 1) {
         cover_genus_garden$code_garden <- ifelse(!grepl(paste(input_code, collapse = "|"), cover_genus_garden$code_garden), NA, cover_genus_garden$code_garden)
@@ -171,17 +249,16 @@ observeEvent(c(input$action, input$genus_select), {
       } else {
         selected_values <- paste(input_code, collapse = "|")
         cover_genus_garden$code_garden[!grepl(selected_values, cover_genus_garden$code_garden)] <- NA
-        entier <- c("fr", "ne", "la")
+        entier <- c("fr", "ne", "la","ge")
         diff <- setdiff(entier, input_code)
         cover_genus_garden$code_garden <- gsub(paste(diff, collapse = "|"), "", cover_genus_garden$code_garden)
         cover_genus_garden$code_garden <- gsub("_+", "_", cover_genus_garden$code_garden)
         cover_genus_garden$code_garden <- gsub("^_|_$", "", cover_genus_garden$code_garden)
       }
       
-      incProgress(2/6, detail = "Filtrage des données...")
+      incProgress(2/6, detail = "Filtering data...")
       
       unique_genera_count <- cover_genus_garden_full %>%
-
         filter(family == family_test) %>%
         distinct(genus) %>%
         nrow()
@@ -189,6 +266,8 @@ observeEvent(c(input$action, input$genus_select), {
       if (unique_genera_count == 1) {
         output$onlygenus <- renderTable({
           genus_line <- subset(cover_species_garden_full, family == family_test)
+           genus_line <- genus_line %>%
+            dplyr::select(species, genus, family, garden, pres)
           genus_line
         })
         output$textgenus <- renderText({
@@ -206,13 +285,12 @@ observeEvent(c(input$action, input$genus_select), {
         cover_genus_garden$genus <- gsub("^x ", "", cover_genus_garden$genus)
         cover_genus_garden$pres[is.na(cover_genus_garden$code_garden)] <- 0
         
-        incProgress(3/6, detail = "Génération de l'arbre phylogénétique...")
-        
+        incProgress(3/6, detail = "Generating phylogenetic tree...")
+
         tree <- rotl::tol_induced_subtree(ott_ids = cover_genus_garden$uid)
         tree$tip.label <- gsub("^x_|\\(genus_in_kingdom_Archaeplastida\\)_|_.*", "", tree$tip.label)
         
-        p <- ggtree(tree) + geom_tiplab() + 
-          geom_hilight(node = 12, extendto = 2.5)
+        p <- ggtree(tree) + geom_tiplab()
         
         df_rangement <- data.frame(genus = get_taxa_name(p))
         df_rangement <- merge(df_rangement, cover_genus_garden, by = "genus", all.x = TRUE, sort = FALSE)
@@ -340,55 +418,35 @@ observeEvent(c(input$action, input$genus_select), {
           final_best_df <- df_temp
         } 
         
-
         # Split par pres pour la couleur dans le plot
-        incProgress(4/6, detail = "Préparation de la table...")
+        incProgress(4/6, detail = "Preparing the table...")
         
-output$mytable <- gt::render_gt({
-  df_rangement_priority <- final_best_df %>%
-    dplyr::filter(pres == 3) %>%
-    dplyr::select(genus)
-  
-  length_to_pad <- (3 - length(df_rangement_priority$genus) %% 3) %% 3
-  padded_genus <- c(df_rangement_priority$genus, rep(NA, length_to_pad))
-  
-  matrix_genus <- matrix(padded_genus, ncol = 3, byrow = TRUE)
-  df_table <- as.data.frame(matrix_genus)
-  
-  df_table <- unique(df_table)
-  
-  gt(df_table) %>%
-    gt::tab_header(
-      title = md("Genus to select")
-    ) %>%
-    # Apply themes and formatting here
-    gt::tab_style(
-      style = gt::cell_text(),
-      locations = gt::cells_body(),
-      text_transform = "uppercase", # Example: transform text to uppercase
-      font = "Arial", # Example: specify font
-      color = "black", # Example: specify text color
-      background = "lightgray", # Example: specify background color
-      align = "center" # Example: align text to center
-    ) %>%
-    gt::tab_options(
-      table.width = "100%", # Example: set table width
-      table.border.top.width = px(2), # Example: set top border width
-      table.border.bottom.width = px(2) # Example: set bottom border width
-    )
-})
-
+        output$mytable <- gt::render_gt({
+          df_rangement_priority <- final_best_df %>% filter(pres == 3) %>% select(genus)
+          
+          length_to_pad <- (3 - length(df_rangement_priority$genus) %% 3) %% 3
+          padded_genus <- c(df_rangement_priority$genus, rep(NA, length_to_pad))
+          
+          matrix_genus <- matrix(padded_genus, ncol = 3, byrow = TRUE)
+          df_table <- as.data.frame(matrix_genus)
+          
+          gt(df_table) %>%
+            gt::tab_header(
+              title = md("Genus to select")
+            )
+        })
+        
         output$downloadTable <- downloadHandler(
           filename = function() {
             paste("Priority_", family_test, ".csv", sep = "")
           },
           content = function(file) {
-            df_rangement_priority <- df_rangement %>% dplyr::filter(pres == 3) %>% dplyr::select(genus)
+            df_rangement_priority <- df_rangement %>% filter(pres == 3) %>% select(genus)
             write.csv(df_rangement_priority, file, row.names = FALSE)
           }
         )
         
-        incProgress(5/6, detail = "Préparation de l'intrigue de la famille...")
+        incProgress(5/6, detail = "Preparing render family tree...")
         
         output$FamilyPlot <- renderPlot({
           isolate({
@@ -420,28 +478,28 @@ output$mytable <- gt::render_gt({
             
             output$downloadFamilyPlot <- downloadHandler(
               filename = function() {
-                paste0("Tree_plot_", family_test, ".jpg")
+                paste0("Tree_plot_", family_test, ".pdf")
               },
               content = function(file) {
-                ggsave(filename = file, plot = tree_family, device = "jpg", width = 40, height = 40, units = "cm")
+                ggsave(filename = file, plot = tree_family, device = "pdf", width = 40, height = 40, units = "cm")
               }
             )
           })
         })
         
-        incProgress(6/6, detail = "Finalisation...")
+        incProgress(6/6, detail = "Finalizing...")
       
       }
-
+    } else {
       # Directly go to split by 'pres' for plot coloring
       # Split par pres pour la couleur dans le plot
       
-      incProgress(4/6, detail = "Préparation de la table...")
+      incProgress(4/6, detail = "Preparing the table...")
       
       output$mytable <- gt::render_gt({
-        df_rangement_priority <- final_best_df %>% dplyr::filter(pres == 3) %>% dplyr::select(genus)
+        df_rangement_priority <- df_rangement %>% filter(pres == 3) %>% select(genus)
         
-        length_to_pad <- (3 - length(final_best_df$genus) %% 3) %% 3
+        length_to_pad <- (3 - length(df_rangement_priority$genus) %% 3) %% 3
         padded_genus <- c(df_rangement_priority$genus, rep(NA, length_to_pad))
         
         matrix_genus <- matrix(padded_genus, ncol = 3, byrow = TRUE)
@@ -458,12 +516,12 @@ output$mytable <- gt::render_gt({
           paste("Priority_", family_test, ".csv", sep = "")
         },
         content = function(file) {
-          df_rangement_priority <- df_rangement %>% dplyr::filter(pres == 3) %>% dplyr::select(genus)
+          df_rangement_priority <- df_rangement %>% filter(pres == 3) %>% select(genus)
           write.csv(df_rangement_priority, file, row.names = FALSE)
         }
       )
       
-      incProgress(5/6, detail = "Préparation de l'intrigue de la famille...")
+      incProgress(5/6, detail = "Preparing family tree...")
       
       output$FamilyPlot <- renderPlot({
         isolate({
@@ -495,158 +553,133 @@ output$mytable <- gt::render_gt({
           
           output$downloadFamilyPlot <- downloadHandler(
             filename = function() {
-              paste0("Tree_plot_", family_test, ".png")
+              paste0("Tree_plot_", family_test, ".pdf")
             },
             content = function(file) {
-              ggsave(filename = file, plot = tree_family, device = "png", width = 40, height = 40, units = "cm")
+              ggsave(filename = file, plot = tree_family, device = "pdf", width = 40, height = 40, units = "cm")
             }
           )
         })
       })
       
-      incProgress(6/6, detail = "Finalisation...")
-    
+      incProgress(6/6, detail = "Finalizing...")
+    }
     
   })
 })
 
+
+
+
+
 ##################################################################
-  observeEvent(input$action, {
+observeEvent(input$action, {
+  withProgress(message = 'Processing...', value = 0, {
     
     output$whitplot  <- NULL
     req(input$Garden != "")
     cover_whit <- cover_species_garden_full
     input_code <- input$Garden
- 
- whit_part1$mean_wc2.0_bio_30s_12 <- as.numeric(whit_part1$mean_wc2.0_bio_30s_12)
- whit_part1$mean_wc2.0_bio_30s_01 <- as.numeric(whit_part1$mean_wc2.0_bio_30s_01)
+    
+    incProgress(1/6, detail = "Converting data types...")
+    whit_part1$mean_wc2.0_bio_30s_12 <- as.numeric(whit_part1$mean_wc2.0_bio_30s_12)
+    whit_part1$mean_wc2.0_bio_30s_01 <- as.numeric(whit_part1$mean_wc2.0_bio_30s_01)
 
+    whit_part1 <- whit_part1 %>%
+        dplyr::select(species, where(is.numeric)) %>%
+        dplyr::group_by(species) %>%
+        dplyr::summarise_all(mean, na.rm = TRUE)
 
-  whit_part1 <- whit_part1 %>%
-  dplyr::select(species, where(is.numeric))
-  
-  whit_part1 <- whit_part1 %>%
-  dplyr::group_by(species) %>%
-  dplyr::summarise_all(mean, na.rm = TRUE)
+    whit_part2 <- whit_part2[!duplicated(whit_part2$species), ]
+    data_env_select <- whit_part1[, c(1,4,5)]
+    mean_df_select <- whit_part2[, c(1,4, 5)]
 
-  whit_part2 <- whit_part2[!duplicated(whit_part2$species), ]
+    incProgress(2/6, detail = "Merging datasets...")
+    colnames(data_env_select) <- c("species","temperature", "precipitation")
+    colnames(mean_df_select) <- c("species", "temperature", "precipitation")
+    mean_df_select$temperature <- mean_df_select$temperature / 10
+    data_clim <- rbind(mean_df_select, data_env_select)  
+    data_clim$precipitation <- as.numeric(data_clim$precipitation)
+    data_clim$temperature <- as.numeric(data_clim$temperature)
+    data_clim$species <- as.factor(data_clim$species)
+    data_clim$precipitation <- data_clim$precipitation / 10
 
-  data_env_select <- whit_part1[, c(1,4,5)]
-  mean_df_select <- whit_part2[, c(1,4, 5)]
+    incProgress(3/6, detail = "Preparing garden codes...(This might take a minute, please be patient.)")
+    unique_species <- unique(cover_whit$species)
+    for (species in unique_species) {
+      select_taxo <- cover_whit[cover_whit$species == species, ]
+      unique_gardens <- unique(select_taxo$garden)
+      sorted_gardens <- sort(unique_gardens)
+      code_garden <- paste(sorted_gardens, collapse = "_")
+      cover_whit$code_garden[cover_whit$species == species] <- code_garden
+    }
 
-  colnames(data_env_select) <- c("species","temperature", "precipitation")
-  colnames(mean_df_select) <- c("species", "temperature", "precipitation")
-  mean_df_select$temperature <- mean_df_select$temperature / 10
-  data_clim <- rbind(mean_df_select, data_env_select)  
-  data_clim$precipitation <- as.numeric(data_clim$precipitation)
-  data_clim$temperature <- as.numeric(data_clim$temperature)
-  data_clim$species <- as.factor(data_clim$species)
-  data_clim$precipitation <- data_clim$precipitation / 10
-# Parcourir chaque valeur unique dans genus de cover_whit
-
-unique_species <- unique(cover_whit$species)
-for (species in unique_species) {
-  # Sélectionner les lignes correspondantes dans select_taxo
-  select_taxo <- cover_whit[cover_whit$species == species, ]
-  
-  # Extraire les valeurs uniques dans la colonne garden
-  unique_gardens <- unique(select_taxo$garden)
-  
-  # Trier les valeurs uniques par ordre alphabétique et les combiner en une chaîne
-  sorted_gardens <- sort(unique_gardens)
-  code_garden <- paste(sorted_gardens, collapse = "_")
-  
-  # Mettre cette chaîne dans cover_whit$code_garden pour le species en cours
-  cover_whit$code_garden[cover_whit$species == species] <- code_garden
-}
+    incProgress(4/6, detail = "Filtering data based on input...")
     if(length(input_code) == 1) {
-    cover_whit$code_garden <- ifelse(!grepl(paste(input_code, collapse = "|"), cover_whit$code_garden), NA, cover_whit$code_garden)
-    cover_whit$code_garden[!is.na(cover_whit$code_garden)] <- paste(input_code, collapse = "_")
-    cover_whit <- cover_whit %>% filter(!is.na(code_garden))
+      cover_whit$code_garden <- ifelse(!grepl(paste(input_code, collapse = "|"), cover_whit$code_garden), NA, cover_whit$code_garden)
+      cover_whit$code_garden[!is.na(cover_whit$code_garden)] <- paste(input_code, collapse = "_")
+      cover_whit <- cover_whit %>% filter(!is.na(code_garden))
     } else {
-    selected_values <- paste(input_code, collapse = "|")
-    cover_whit$code_garden[!grepl(selected_values, cover_whit$code_garden)] <- NA
-    entier <- c("fr", "ne", "la")
-    diff <- setdiff(entier, input_code)
-    diff <- setdiff(entier, input_code)
-    cover_whit$code_garden <- gsub(paste(diff, collapse = "|"), "", cover_whit$code_garden)
-    cover_whit$code_garden <- gsub("_+", "_", cover_whit$code_garden)
-    cover_whit$code_garden <- gsub("^_|_$", "", cover_whit$code_garden)
-    cover_whit <- cover_whit %>% filter(!is.na(code_garden))
-      }
-  cover_whit <- cover_whit %>%  dplyr::distinct(species, .keep_all = TRUE)
-  data_clim <- merge(data_clim, cover_whit, by = "species")
-  data_clim$jardin <- as.factor(data_clim$code_garden)
-  data_clim <- data_clim %>%  dplyr::mutate(temperature = ifelse(species %in% c("Drosera spathulata", "Duvalia modesta"), 25, temperature))
+      selected_values <- paste(input_code, collapse = "|")
+      cover_whit$code_garden[!grepl(selected_values, cover_whit$code_garden)] <- NA
+      entier <- c("fr", "ne", "la","ge")
+      diff <- setdiff(entier, input_code)
+      cover_whit$code_garden <- gsub(paste(diff, collapse = "|"), "", cover_whit$code_garden)
+      cover_whit$code_garden <- gsub("_+", "_", cover_whit$code_garden)
+      cover_whit$code_garden <- gsub("^_|_$", "", cover_whit$code_garden)
+      cover_whit <- cover_whit %>% filter(!is.na(code_garden))
+    }
+    cover_whit <- cover_whit %>% dplyr::distinct(species, .keep_all = TRUE)
 
-  data_clim <- data_clim %>% filter(!is.na(temperature))
-  data_clim <- data_clim[!duplicated(data_clim$species), ]
+    incProgress(5/6, detail = "Merging climatic data...")
+    data_clim <- merge(data_clim, cover_whit, by = "species")
+    data_clim$jardin <- as.factor(data_clim$code_garden)
+    data_clim <- data_clim %>% dplyr::mutate(temperature = ifelse(species %in% c("Drosera spathulata", "Duvalia modesta"), 25, temperature))
+    data_clim <- data_clim %>% filter(!is.na(temperature))
+    data_clim <- data_clim[!duplicated(data_clim$species), ]
 
+    incProgress(6/6, detail = "Generating plot...")
+    output$whitplot <- renderPlot({
+      isolate({
+        whit <- plotbiomes::whittaker_base_plot() +
+          geom_point(data = data_clim, 
+                     aes(x = temperature, 
+                         y = precipitation,
+                         color = code_garden),  
+                     size = 0.5,             
+                     shape = 16,
+                     alpha = 0.8) +
+          scale_color_manual(
+            name = "Garden",
+            values = color_values,
+            labels = labels,
+            breaks = family_levels
+          ) +
+          labs(title = "Whittaker Plot") +
+          theme_minimal() +
+          theme(panel.background = element_rect(fill = "white", color = NA)) +
+          guides(color = guide_legend(override.aes = list(size = 3)))
 
-# Votre code ggplot avec l'ajout de scale_color_manual()
- output$whitplot <- renderPlot({
+        print(whit)
 
-  isolate({
-
-whit <- plotbiomes::whittaker_base_plot() +
-  geom_point(data = data_clim, 
-             aes(x = temperature, 
-                 y = precipitation,
-                 color = code_garden),  
-             size   = 0.5,             
-             shape  = 16,
-             alpha  = 0.8) +
-
-  scale_color_manual(
-    name = "Family",
-    values = c(
-      "fr_ne"    = "orange", 
-      "fr_la"    = "darkgreen", 
-      "fr_la_ne" = "darkblue", 
-      "fr"       = "purple", 
-      "ne"       = "red", 
-      "la"       = "brown",
-      "la_ne"    = "pink",
-      "NA" = "grey"
-    ),
-    labels = c(
-      "fr_ne"    = "Available in Fribourg and Neuchâtel", 
-      "fr_la"    = "Available in Fribourg and Lausanne", 
-      "fr_la_ne" = "Available in Fribourg, Lausanne, and Neuchâtel", 
-      "fr"       = "Available in Fribourg",
-      "ne"       = "Available in Neuchâtel", 
-      "la"       = "Available in Lausanne",
-      "la_ne"    = "Available in Lausanne and Neuchâtel",
-      "NA" = "Not available"
-    ),
-    breaks = c(
-      "fr_ne", 
-      "fr_la", 
-      "fr_la_ne", 
-      "fr", 
-      "ne", 
-      "la", 
-      "la_ne", 
-      "NA"
-    )
-  ) +
-  labs(title = paste("Whittaker plot")) +
-  theme_minimal() +
-  theme(panel.background = element_rect(fill = "white", color = NA)) +
-  guides(color = guide_legend(override.aes = list(size = 3))) 
-print(whit)
-
-
-output$dlwhitplot <- downloadHandler(
-      filename = function() {
-        paste0("whit_full_plot_", Sys.Date(), ".jpg")
-      },
-      content = function(file) {
-        ggsave(filename = file, plot = whit, device = "jpg", width = 14, height = 10)
-      }
+        output$dlwhitplot <- downloadHandler(
+          filename = function() {
+            paste0("whit_full_plot_", Sys.Date(), ".jpg")
+          },
+          content = function(file) {
+            ggsave(filename = file, plot = whit, device = "jpg", width = 14, height = 10)
+          }
         )
       })
+    })
   })
+
+
+
+
+
+
+
 
 
 output$whitplotFamily <- renderPlot({
@@ -660,53 +693,26 @@ data_clim_sub <- data_clim_sub %>%
          is.finite(temperature) & is.finite(precipitation))
 
 
- whitfamily <- plotbiomes::whittaker_base_plot() +
-  geom_point(data = data_clim_sub, 
-             aes(x = temperature, 
-                 y = precipitation,
-                 color = code_garden),  
-             size = 1,             
-             shape = 16,
-             alpha = 0.8) +
-  scale_color_manual(
-    name = "Garden",
-    values = c(
-      "fr_ne"    = "orange", 
-      "fr_la"    = "darkgreen", 
-      "fr_la_ne" = "darkblue", 
-      "fr"       = "purple", 
-      "ne"       = "red", 
-      "la"       = "brown",
-      "la_ne"    = "pink",
-      "NA" = "grey"
-    ),
-    labels = c(
-      "fr_ne"    = "Available in Fribourg and Neuchâtel", 
-      "fr_la"    = "Available in Fribourg and Lausanne", 
-      "fr_la_ne" = "Available in Fribourg, Lausanne, and Neuchâtel", 
-      "fr"       = "Available in Fribourg",
-      "ne"       = "Available in Neuchâtel", 
-      "la"       = "Available in Lausanne",
-      "la_ne"    = "Available in Lausanne and Neuchâtel",
-      "NA" = "Not available"
-    ),
-    breaks = c(
-      "fr_ne", 
-      "fr_la", 
-      "fr_la_ne", 
-      "fr", 
-      "ne", 
-      "la", 
-      "la_ne", 
-      "NA"
-    )
-  ) +
-  labs(title = "Whittaker plot") +
-  theme_minimal() +
-  theme(panel.background = element_rect(fill = "white", color = NA)) +
-  guides(color = guide_legend(override.aes = list(size = 1))) 
+whitfamily <- plotbiomes::whittaker_base_plot() +
+          geom_point(data = data_clim_sub, 
+                     aes(x = temperature, 
+                         y = precipitation,
+                         color = code_garden),  
+                     size = 1,             
+                     shape = 16,
+                     alpha = 0.8) +
+          scale_color_manual(
+            name = "Garden",
+            values = color_values,  # Ensure color_values is defined
+            labels = labels,        # Ensure labels is defined
+            breaks = family_levels  # Ensure family_levels is defined
+          ) +
+          labs(title = "Whittaker Plot") +
+          theme_minimal() +
+          theme(panel.background = element_rect(fill = "white", color = NA)) +
+          guides(color = guide_legend(override.aes = list(size = 1)))
 
-print(whitfamily)
+        print(whitfamily)
 
 
  output$dlwhitplotFamily <- downloadHandler(
@@ -732,64 +738,33 @@ data_clim_sub <- data_clim_sub %>%
          is.finite(temperature) & is.finite(precipitation))
 
 
- whitfamilyKernel <- plotbiomes::whittaker_base_plot() +
-  geom_point(data = data_clim_sub, 
-             aes(x = temperature, 
-                 y = precipitation,
-                 color = code_garden),  
-             size = 1,             
-             shape = 16,
-             alpha = 0.8) +
+whitfamilyKernel <- plotbiomes::whittaker_base_plot() +
+          geom_point(data = data_clim_sub, 
+                     aes(x = temperature, 
+                         y = precipitation,
+                         color = code_garden),  
+                     size = 1,             
+                     shape = 16,
+                     alpha = 0.8) +
+          stat_density_2d(data = data_clim_sub, 
+                          aes(x = temperature, 
+                              y = precipitation, 
+                              color = code_garden),
+                          linewidth = 0.5,  
+                          alpha = 0.3, 
+                          h = 10) +  
+          scale_color_manual(
+            name = "Garden",
+            values = color_values,  # Ensure color_values is defined
+            labels = labels,        # Ensure labels is defined
+            breaks = family_levels  # Ensure family_levels is defined
+          ) +
+          labs(title = paste("Whittaker Plot for", family_test)) +
+          theme_minimal() +
+          theme(panel.background = element_rect(fill = "white", color = NA)) +
+          guides(color = guide_legend(override.aes = list(size = 5)))
 
-             
-  stat_density_2d(data = data_clim, 
-                  aes(x = temperature, 
-                      y = precipitation, 
-                      color = code_garden),
-                  linewidth = 0.5,  
-                  alpha = 0.3, 
-                  h = 10) +  
-  
-  
-  scale_color_manual(
-    name = "Garden",
-    values = c(
-      "fr_ne"    = "orange", 
-      "fr_la"    = "darkgreen", 
-      "fr_la_ne" = "darkblue", 
-      "fr"       = "purple", 
-      "ne"       = "red", 
-      "la"       = "brown",
-      "la_ne"    = "pink",
-      "NA" = "grey"
-    ),
-    labels = c(
-      "fr_ne"    = "Available in Fribourg and Neuchâtel", 
-      "fr_la"    = "Available in Fribourg and Lausanne", 
-      "fr_la_ne" = "Available in Fribourg, Lausanne, and Neuchâtel", 
-      "fr"       = "Available in Fribourg",
-      "ne"       = "Available in Neuchâtel", 
-      "la"       = "Available in Lausanne",
-      "la_ne"    = "Available in Lausanne and Neuchâtel",
-      "NA" = "Not available"
-    ),
-    breaks = c(
-      "fr_ne", 
-      "fr_la", 
-      "fr_la_ne", 
-      "fr", 
-      "ne", 
-      "la", 
-      "la_ne", 
-      "NA"
-    )
-  ) +
-  labs(title = paste("Whittaker plot for", family_test)) +
-  theme_minimal() +
-  theme(panel.background = element_rect(fill = "white", color = NA)) +
-   guides(color = guide_legend(override.aes = list(size = 5))) 
-
-print(whitfamilyKernel)
+        print(whitfamilyKernel)
 
 
  output$dlwhitplotFamilyKernel <- downloadHandler(
@@ -817,68 +792,25 @@ output$whitplotSelect <- renderPlotly({
          filter(!is.na(temperature) & !is.na(precipitation) & 
          is.finite(temperature) & is.finite(precipitation))
 
+# Replace garden values using the replacement mapping
+        data_clim_sub <- data_clim_sub %>%
+          mutate(garden = replacement_mapping[garden])  # Ensure replacement_mapping is defined
 
+        # Create the Plotly plot
+        plot <- ggplot(data_clim_sub, aes(x = temperature, y = precipitation, color = code_garden, text = paste("Species:", species))) + 
+          geom_point(size = 1, shape = 16, alpha = 0.8) +
+          labs(title = "Whittaker Plot") +
+          theme_minimal() +
+          theme(panel.background = element_rect(fill = "white", color = NA)) +
+          scale_color_manual(
+            name = "Garden",
+            values = color_values,  # Ensure color_values is defined
+            labels = labels,        # Ensure labels is defined
+            breaks = family_levels  # Ensure family_levels is defined
+          ) +
+          coord_cartesian(xlim = c(-15, 30), ylim = c(-5, 450))
 
-  data_clim_sub$garden <- as.factor(data_clim_sub$garden)
-  data_clim_sub$garden <- gsub("fr", "Fribourg", gsub("ne", "Neuchâtel", gsub("la", "Lausanne", data_clim_sub$garden)))
-  data_clim_sub$garden <- ifelse(data_clim_sub$garden == "Fribourg_LausanNeuchâtel_Neuchâtel", 
-                                   "Fribourg_Lausanne_Neuchâtel", 
-                                   data_clim_sub$garden)
-  data_clim_sub$garden <- ifelse(data_clim_sub$garden == "LausanNeuchâtel_Neuchâtel", 
-                                   "Lausanne_Neuchâtel", 
-                                   data_clim_sub$garden)
-  data_clim_sub$garden <- ifelse(data_clim_sub$garden == "LausanNeuchâtel", 
-                                   "Lausanne", 
-                                   data_clim_sub$garden)
-
-
-
-
-    data_clim_sub <- subset(data_clim, family == family_test)
-    data_clim_sub <- data_clim_sub %>%
-      filter(!is.na(temperature) & !is.na(precipitation) & 
-             is.finite(temperature) & is.finite(precipitation))
-
-    plot <- ggplot(data_clim_sub, aes(x = temperature, y = precipitation, color = code_garden, text = paste("Species:", species))) + 
-      geom_point(size = 1, shape = 16, alpha = 0.8) +
-      labs(title = "Whittaker plot") +
-      theme_minimal() +
-      theme(panel.background = element_rect(fill = "white", color = NA)) +
-      scale_color_manual(
-        name = "Garden",
-        values = c(
-          "fr_ne"    = "orange", 
-          "fr_la"    = "darkgreen", 
-          "fr_la_ne" = "darkblue", 
-          "fr"       = "purple", 
-          "ne"       = "red", 
-          "la"       = "brown",
-          "la_ne"    = "pink",
-          "NA" = "grey"
-        ),
-        labels = c(
-          "fr_ne"    = "Available in Fribourg and Neuchâtel", 
-          "fr_la"    = "Available in Fribourg and Lausanne", 
-          "fr_la_ne" = "Available in Fribourg, Lausanne, and Neuchâtel", 
-          "fr"       = "Available in Fribourg",
-          "ne"       = "Available in Neuchâtel", 
-          "la"       = "Available in Lausanne",
-          "la_ne"    = "Available in Lausanne and Neuchâtel",
-          "NA" = "Not available"
-        ),
-        breaks = c(
-          "fr_ne", 
-          "fr_la", 
-          "fr_la_ne", 
-          "fr", 
-          "ne", 
-          "la", 
-          "la_ne", 
-          "NA"
-        )
-      ) +
-      coord_cartesian(xlim = c(-15, 30), ylim = c(-5, 450))
-    ggplotly(plot, tooltip = "text") 
+        ggplotly(plot, tooltip = "text")
   })
 })
 
@@ -886,12 +818,15 @@ output$whitplotSelect <- renderPlotly({
 })
 
 
+
+
+
   ##############################################
 
 # Filtrer les données en fonction du jardin sélectionné
 
 observe({
-  updateSelectInput(session, "GPS_family", choices = unique(all_species_taxo$family))
+  updateSelectInput(session, "GPS_family", choices = sort(unique(all_species_taxo$family)))
 })
 
 filtered_data <- reactive({
@@ -926,7 +861,7 @@ observeEvent(input$goButton, {
   all_gps_data <- data.frame()
 
   # Afficher la barre de chargement
-  withProgress(message = 'Chargement des données...', value = 0, {
+  withProgress(message = 'downloading data...(This might take a minute, please be patient.)', value = 0, {
     n <- nrow(family_map)
     # Boucle pour chaque espèce
     for (i in 1:n) {
@@ -996,7 +931,7 @@ observeEvent(input$goButton, {
         }
         
         # Mettre à jour la barre de progression
-        incProgress(1/n, detail = paste("Traitement des données", i, "sur", n))
+        incProgress(1/n+1, detail = paste("Traitement des données", i, "sur", n))
       }, error = function(e) {
         if (grepl("replacement has 1 row, data has 0", e$message)) {
           output$errortext <- renderText({
@@ -1076,49 +1011,39 @@ output$downloaddistrib <- downloadHandler(
 
 
 
-
   
   ##############################################################
 
    cover_species <- cover_species_garden_full
 
 
-   
-
-  cover_species$garden <- gsub("fr", "Fribourg", gsub("ne", "Neuchâtel", gsub("la", "Lausanne", cover_species$garden)))
-  cover_species$garden <- ifelse(cover_species$garden == "Fribourg_LausanNeuchâtel_Neuchâtel", 
-                                   "Fribourg_Lausanne_Neuchâtel", 
-                                   cover_species$garden)
-  cover_species$garden <- ifelse(cover_species$garden == "LausanNeuchâtel_Neuchâtel", 
-                                   "Lausanne_Neuchâtel", 
-                                   cover_species$garden)
-  cover_species$garden <- ifelse(cover_species$garden == "LausanNeuchâtel", 
-                                   "Lausanne", 
-                                   cover_species$garden)
+# Remplacer les valeurs dans garden en utilisant le vecteur de correspondances
+cover_species <- cover_species %>%
+  dplyr::mutate(garden = replacement_mapping[garden])
 
  # Étape 1 : Identifier les doublons par 'species' et 'garden' et compter les occurrences
   cover_species_summary <- cover_species %>%
-  group_by(species, garden) %>%
-  summarize(pres = n(), .groups = 'drop')
+   dplyr::group_by(species, garden) %>%
+   dplyr::summarize(pres = n(), .groups = 'drop')
 
   # Étape 2 : Supprimer les doublons en gardant un seul exemplaire avec le compte des occurrences
   cover_species <- cover_species %>%
-  select(-pres) %>%
-  distinct(species, garden, .keep_all = TRUE) %>%
-  left_join(cover_species_summary, by = c("species", "garden"))
+   dplyr::select(-pres) %>%
+   dplyr::distinct(species, garden, .keep_all = TRUE) %>%
+   dplyr::left_join(cover_species_summary, by = c("species", "garden"))
 
 
-   cover_genus <- cover_genus_garden_full
+   cover_species <- cover_species %>%
+   dplyr::select(species, genus, family, garden, pres)
+
+
+cover_genus <- cover_genus_garden_full
    cover_genus <- cover_genus[cover_genus$pres == 0, c("family", "genus", "garden", "pres")]
    cover_genus <- cbind(species = NA, cover_genus)
 
    cover_species <- rbind(cover_species,cover_genus)
 
    cover_species <- rename(cover_species, `individual available` = pres)
-
-   cover_species <- cover_species %>%
-  select(species, genus, family, garden, everything())
-
 
 
   observe({
@@ -1135,7 +1060,7 @@ output$downloaddistrib <- downloadHandler(
   
   observe({
     if (!is.null(input$selected_family) && input$selected_family != "" && !is.null(input$selected_genus) && input$selected_genus != "") {
-      updateSelectInput(session, "selected_species", choices = c("", unique(cover_species$species[cover_species$family == input$selected_family & cover_species$genus == input$selected_genus])))
+      updateSelectInput(session, "selected_species", choices = c("", unique(cover_species$species[cover_species_garden_full$family == input$selected_family & cover_species_garden_full$genus == input$selected_genus])))
     } else {
       updateSelectInput(session, "selected_species", choices = c("", NULL))
     }
@@ -1173,4 +1098,3 @@ output$downloadTablespecies <- downloadHandler(
   )
 
 }
-
