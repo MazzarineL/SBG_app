@@ -26,7 +26,6 @@ library(Polychrome)
 # Définir le serveur
 server <- function(input, output, session) {
 
-
 world <- map_data("world")
 
 cover_genus_garden_full <- read.csv(curl::curl("https://raw.githubusercontent.com/MazzarineL/SBG_app/main/data/cover_genus_garden_500.csv") )
@@ -87,6 +86,11 @@ color_values<- c(
   "#BDC3C7"   # Not available (gris)
 )
 names(color_values) <- family_levels
+
+code_list <- c("fr", "ne", "la", "ge", "fr_ne", "fr_la", "fr_la_ne", "fr_ge", 
+                   "fr_ge_la", "fr_ge_la_ne", "fr_ge_ne", "ge_la", "ge_la_ne", 
+                   "ge_ne", "la_ne", "NA")
+    
 
 # Fonction pour générer les labels adaptatifs
 generate_labels <- function(family_levels) {
@@ -568,9 +572,202 @@ observeEvent(c(input$action, input$genus_select), {
   })
 })
 
+#####################################
+#########BARPLOT COVER ##############
+#####################################
+
+observeEvent(input$action, {
+  
+  output$coverplot <- NULL
+  req(input$Garden != "")
+  
+  cover_plot <- cover_species_garden_full
+  input_code <- input$Garden
+
+  cover_plot <- cover_plot %>% dplyr::select(genus, family, code_garden)
+
+  # Liste des valeurs autorisées à partir de input$Garden
+input_values <- unlist(strsplit(input_code, "_"))
+
+# Filtrer pour ne garder que les valeurs spécifiées dans input$Garden
+filter_code <- function(code, input_values) {
+  # Décomposer le code en éléments individuels
+  code_elements <- unlist(strsplit(code, "_"))
+  
+  # Garder seulement les éléments présents dans input_values
+  filtered_elements <- code_elements[code_elements %in% input_values]
+  
+  # Recomposer le code à partir des éléments filtrés
+  if (length(filtered_elements) == 0) {
+    return("NA")
+  } else {
+    return(paste(sort(filtered_elements), collapse = "_"))
+  }
+}
+# Appliquer la fonction de filtrage à chaque code_garden
+cover_plot <- cover_plot %>%
+  dplyr::mutate(code_garden = sapply(code_garden, filter_code, input_values = input_values)) %>%
+  dplyr::filter(code_garden != "NA")
+
+  # Créer une table pour stocker les résultats pour les genres
+  genus_cover <- data.frame(genus = character(), code_garden = character(), stringsAsFactors = FALSE)
+  
+  # Créer une table pour stocker les résultats pour les familles
+  family_cover <- data.frame(family = character(), code_garden = character(), stringsAsFactors = FALSE)
+  
+  # Obtenir les genres et familles uniques
+  unique_genera <- unique(cover_plot$genus)
+  unique_families <- unique(cover_plot$family)
+  
+  # Fonction pour recomposer le code de jardin
+  recompose_code <- function(codes) {
+    # Décomposer les codes en éléments individuels
+    elements <- unique(unlist(strsplit(codes, "_")))
+    
+    # Filtrer les éléments valides
+    valid_elements <- elements[elements %in% c("ne", "la", "fr", "ge")]
+    
+    if (length(valid_elements) == 0) {
+      return("NA")
+    }
+    
+    # Trier les éléments selon un ordre spécifique si nécessaire
+    # Ici, on les trie simplement par ordre alphabétique
+    ordered_elements <- sort(valid_elements)
+    
+    # Recomposer le code selon la liste donnée
+    final_code <- paste(ordered_elements, collapse = "_")
+    
+    # Liste des codes valides
+    code_list <- c("fr","ne", "la", "ge", "fr_ne", "fr_la", "fr_la_ne", "fr_ge", 
+                   "fr_ge_la", "fr_ge_la_ne", "fr_ge_ne", "ge_la", "ge_la_ne", 
+                   "ge_ne", "la_ne", "NA")
+    
+    if (final_code %in% code_list) {
+      return(final_code)
+    } else {
+      return("NA")
+    }
+  }
+  
+  # Fonction générique pour créer le dataframe cover (pour genus ou family)
+  create_cover_dataframe <- function(data, group_var) {
+    cover <- data.frame()
+    unique_groups <- unique(data[[group_var]])
+    
+    for (group in unique_groups) {
+      # Extraire les codes_garden associés au groupe (genus ou family)
+      codes <- unique(data$code_garden[data[[group_var]] == group])
+      
+      # Recomposer le code
+      final_code <- recompose_code(codes)
+      
+      # Ajouter le résultat au dataframe cover
+      if (group_var == "genus") {
+        cover <- rbind(cover, data.frame(genus = group, code_garden = final_code, stringsAsFactors = FALSE))
+      } else if (group_var == "family") {
+        cover <- rbind(cover, data.frame(family = group, code_garden = final_code, stringsAsFactors = FALSE))
+      }
+    }
+    
+    return(cover)
+  }
+  
+  # Créer les dataframes
+  genus_cover <- create_cover_dataframe(cover_plot, "genus")
+  family_cover <- create_cover_dataframe(cover_plot, "family")
+  
+  # Créer la table pour les familles
+  family_table <- table(family_cover$code_garden)
+  
+  # Compter le nombre total d'occurrences
+  total_family <- sum(family_table)
+  
+  # Calculer les occurrences NA à ajouter
+  family_na_to_add <- 508 - total_family
+  
+  # Ajouter les occurrences NA manquantes à la table
+  if ("NA" %in% names(family_table)) {
+    family_table["NA"] <- family_table["NA"] + family_na_to_add
+  } else {
+    family_table <- c(family_table, "NA" = family_na_to_add)
+  }
+  
+  # Créer la table pour les genres
+  genus_table <- table(genus_cover$code_garden)
+  
+  # Compter le nombre total d'occurrences
+  total_genus <- sum(genus_table)
+  
+  # Calculer les occurrences NA à ajouter
+  genus_na_to_add <- 14282 - total_genus
+  
+  # Ajouter les occurrences NA manquantes à la table
+  if ("NA" %in% names(genus_table)) {
+    genus_table["NA"] <- genus_table["NA"] + genus_na_to_add
+  } else {
+    genus_table <- c(genus_table, "NA" = genus_na_to_add)
+  }
+  
+  # Créer les dataframes finaux
+  table_family <- data.frame(
+    type = rep("family", length(family_table)), 
+    av = ifelse(names(family_table) == "NA", "not available", "available"), 
+    garden = names(family_table),         
+    count = as.vector(family_table),    
+    stringsAsFactors = FALSE               
+  )
+  
+  table_genus <- data.frame(
+    type = rep("genus", length(genus_table)), 
+    av = ifelse(names(genus_table) == "NA", "not available", "available"), 
+    garden = names(genus_table),    
+    count = as.vector(genus_table),  
+    stringsAsFactors = FALSE 
+  )
+  
+  table_full <- rbind(table_family, table_genus)
+  table_full$garden <- factor(table_full$garden, levels = code_list)
+  # Render plot
+  output$coverplot <- renderPlot({
+     isolate({
+    gg2 <- ggplot(table_full, aes(x = type, y = count, fill = garden)) +
+      geom_bar(stat = "identity", position = "stack") +
+      labs(x = "Type", y = "Count", fill = "Garden") +
+      ggtitle("Bar Plot") +
+      theme_minimal() +
+      facet_wrap(~type, scales = "free") +
+      scale_fill_manual(
+        name = "garden",
+        values = color_values,  
+        labels = labels,        
+        breaks = family_levels  
+      ) +
+      theme(
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 15)
+      )
+    print(gg2)
+ 
+  # Télécharger le plot
+  output$downloadcoverplot <- downloadHandler(
+    filename = function() {
+      paste0("Barplot_genus_family_", Sys.Date(), ".jpg")
+    },
+    content = function(file) {
+      ggsave(filename = file, plot = gg2, device = "jpg", width = 14, height = 10)
+    }
+  )
+ })
+  })
+})
 
 
 
+
+
+
+ 
 
 ##################################################################
 observeEvent(input$action, {
@@ -1098,3 +1295,4 @@ output$downloadTablespecies <- downloadHandler(
   )
 
 }
+

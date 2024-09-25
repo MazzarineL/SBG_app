@@ -34,7 +34,8 @@ ui <- dashboardPage(
       ),
       menuItem("Phylogenetic", icon = icon("sitemap"),
                menuSubItem("Garden Tree", tabName = "garden_tree", icon = icon("tree")),
-               menuSubItem("Family Tree", tabName = "family_tree", icon = icon("leaf"))
+               menuSubItem("Family Tree", tabName = "family_tree", icon = icon("leaf")),
+               menuSubItem("Phylogenetic coverage", tabName = "plot_cover", icon = icon("chart-simple"))
       ),
       menuItem("Biome", icon = icon("globe"),
                menuSubItem("Whitakker Garden plot", tabName = "whit_garden_plot", icon = icon("chart-area")),
@@ -166,6 +167,17 @@ ui <- dashboardPage(
           )
         )
       ),
+        tabItem(tabName = "plot_cover",
+        helpText(tags$strong("This section displays the status of the plant families and types available in the gardens.")),
+        fluidRow(
+          box(title = "Coverage plot", status = "primary", solidHeader = TRUE, width = 12,
+            plotOutput(outputId = "coverplot", height = "1000px"),
+            div(class = "btn-group",
+              downloadButton(outputId = "downloadcoverplot", label = "Download Coverage Plot", class = "btn btn-primary")
+            )
+          )
+        )
+      ),
       tabItem(tabName = "whit_garden_plot",
         helpText(tags$strong("This section displays the Whitakker plot for the gardens selected.")),
         fluidRow(
@@ -240,10 +252,5 @@ ui <- dashboardPage(
     )
   )
 )
-
-
-
-
-
 
 
