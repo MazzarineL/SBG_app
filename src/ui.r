@@ -29,7 +29,6 @@ ui <- dashboardPage(
       div(class = "filters-section",
           menuItem("Filters", tabName = "filters", icon = icon("filter"), selected = TRUE),
           checkboxGroupInput(inputId = "Garden", label = "Select Garden", choices = c("Neuchâtel" = "ne", "Fribourg" = "fr", "Lausanne" = "la", "Geneva" = "ge")),
-          selectInput(inputId = "family", label = "Family to Test", choices = sort(unique(cover_species_garden_full$family)), selected = ""),
           actionButton(inputId = "action", label = "Go!", icon = icon("play"), style = "color: #fff; background-color: #222c32;")
       ),
       menuItem("Phylogenetic", icon = icon("sitemap"),
@@ -102,9 +101,6 @@ ui <- dashboardPage(
             "To get started, choose one or more gardens."
           ),
           tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
-            "Select a plant family of interest."
-          ),
-          tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
             "Launch the script with the 'Go' button."
           ),
           tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
@@ -140,9 +136,11 @@ ui <- dashboardPage(
       tabItem(tabName = "family_tree",
         helpText(tags$strong("This section presents the Family Tree plot, highlighting the genus names in blue if they are included in the botanical garden, thereby enhancing the coverage optimization for the family. You can adjust the window size and the step for change the calcul parameters.")),
         fluidRow(
-          box(title = "Family Tree", status = "primary", solidHeader = TRUE, width = 12,
-            sliderInput(inputId = "genus_select", label = "Number of genus to select", min = 1, max = 30, value = 5),
-            tags$div(style = "color: #000000; font-size: 14px; font-weight: bold; margin-top: 10px;",
+          box(title = "Family Selection", status = "primary", solidHeader = TRUE, width = 12,
+                    selectInput(inputId = "family", label = "Family to Test", choices = sort(unique(cover_species_garden_full$family)), selected = ""),
+                    sliderInput(inputId = "genus_select", label = "Number of genus to select", min = 1, max = 30, value = 5),
+                    actionButton(inputId = "actionfamily", label = "Apply Family Filter", icon = icon("play"), style = "color: #fff; background-color: #222c32;"),
+                    tags$div(style = "color: #000000; font-size: 14px; font-weight: bold; margin-top: 10px;",
               "It may happen that the number of genera selected cannot be perfectly matched to your request, in which case the model will choose the number of genera closest to your pre-selection, maximizing genus coverage. Furthermore, if you've chosen a high number of genus and the tree has no blue branches, this means that you've reached the maximum number of selectable genus and there are none to select as a priority."
             ),
             textOutput("textgenus"),
@@ -237,8 +235,8 @@ ui <- dashboardPage(
             ),
             tags$br(), tags$br(),
             selectInput("GPS_family", "Select a family", choices = NULL),
-            selectInput("GPS_genus", "Select a genus:", choices = NULL),
-            selectInput("GPS_species", "Select a species:", choices = NULL, multiple = TRUE),
+            selectInput("GPS_genus", "Select a genus:", choices = c("", NULL)),
+            selectInput("GPS_species", "Select a species:", choices = c("", NULL), multiple = TRUE),
             actionButton("goButton", "Go"),
             leafletOutput("map", width = "100%", height = "500px"),
             tags$br(), tags$br(),

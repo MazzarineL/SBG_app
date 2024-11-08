@@ -217,7 +217,7 @@ observeEvent(input$action, {
 
 
 ############################################
-observeEvent(c(input$action, input$genus_select), {
+observeEvent(c(input$actionfamily, input$genus_select), {
   withProgress(message ='Loading data...', value = 0, {
     req(input$Garden != "")
     
@@ -584,7 +584,7 @@ observeEvent(input$action, {
   cover_plot <- cover_species_garden_full
   input_code <- input$Garden
 
-  cover_plot <- cover_plot %>% dplyr::select(genus, family, code_garden)
+  cover_plot <- cover_plot %>% dplyr::select(species, genus, family, code_garden)
 
   # Liste des valeurs autorisées à partir de input$Garden
 input_values <- unlist(strsplit(input_code, "_"))
@@ -609,6 +609,9 @@ cover_plot <- cover_plot %>%
   dplyr::mutate(code_garden = sapply(code_garden, filter_code, input_values = input_values)) %>%
   dplyr::filter(code_garden != "NA")
 
+ # Créer une table pour stocker les résultats pour les genres
+  species_cover <- data.frame(species = character(), code_garden = character(), stringsAsFactors = FALSE)
+  
   # Créer une table pour stocker les résultats pour les genres
   genus_cover <- data.frame(genus = character(), code_garden = character(), stringsAsFactors = FALSE)
   
@@ -616,6 +619,7 @@ cover_plot <- cover_plot %>%
   family_cover <- data.frame(family = character(), code_garden = character(), stringsAsFactors = FALSE)
   
   # Obtenir les genres et familles uniques
+  unique_species <- unique(cover_plot$species)
   unique_genera <- unique(cover_plot$genus)
   unique_families <- unique(cover_plot$family)
   
@@ -651,32 +655,72 @@ cover_plot <- cover_plot %>%
   }
   
   # Fonction générique pour créer le dataframe cover (pour genus ou family)
-  create_cover_dataframe <- function(data, group_var) {
-    cover <- data.frame()
-    unique_groups <- unique(data[[group_var]])
+create_cover_dataframe <- function(data, group_var) {
+    cover <- data.frame()  # Crée un dataframe vide pour stocker les résultats
+    unique_groups <- unique(data[[group_var]])  # Liste des groupes uniques (species, genus, family)
     
     for (group in unique_groups) {
-      # Extraire les codes_garden associés au groupe (genus ou family)
-      codes <- unique(data$code_garden[data[[group_var]] == group])
-      
-      # Recomposer le code
-      final_code <- recompose_code(codes)
-      
-      # Ajouter le résultat au dataframe cover
-      if (group_var == "genus") {
-        cover <- rbind(cover, data.frame(genus = group, code_garden = final_code, stringsAsFactors = FALSE))
-      } else if (group_var == "family") {
-        cover <- rbind(cover, data.frame(family = group, code_garden = final_code, stringsAsFactors = FALSE))
-      }
+        # Extraire les codes_garden associés au groupe
+        codes <- unique(data$code_garden[data[[group_var]] == group])
+        
+        # Recomposer le code
+        final_code <- recompose_code(codes)
+        
+        # Ajouter le résultat au dataframe cover selon le groupe (species, genus ou family)
+        if (group_var == "genus") {
+            cover <- rbind(cover, data.frame(genus = group, code_garden = final_code, stringsAsFactors = FALSE))
+        } else if (group_var == "family") {
+            cover <- rbind(cover, data.frame(family = group, code_garden = final_code, stringsAsFactors = FALSE))
+        } else if (group_var == "species") {
+            cover <- rbind(cover, data.frame(species = group, code_garden = final_code, stringsAsFactors = FALSE))
+        }
     }
     
-    return(cover)
-  }
+    return(cover)  # Retourne le dataframe final
+}
+
   
   # Créer les dataframes
+  species_cover <- create_cover_dataframe(cover_plot, "species")
   genus_cover <- create_cover_dataframe(cover_plot, "genus")
   family_cover <- create_cover_dataframe(cover_plot, "family")
   
+
+  # Créer la table pour les espèces
+  species_table <- table(species_cover$code_garden)
+  
+  # Compter le nombre total d'occurrences
+  total_species <- sum(species_table)
+  
+  # Calculer les occurrences NA à ajouter
+  species_na_to_add <- 390000 - total_species
+  
+  # Ajouter les occurrences NA manquantes à la table
+  if ("NA" %in% names(species_table)) {
+    species_table["NA"] <- species_table["NA"] + species_na_to_add
+  } else {
+    species_table <- c(species_table, "NA" = species_na_to_add)
+  }
+
+
+
+    # Créer la table pour les genres
+  genus_table <- table(genus_cover$code_garden)
+  
+  # Compter le nombre total d'occurrences
+  total_genus <- sum(genus_table)
+  
+  # Calculer les occurrences NA à ajouter
+  genus_na_to_add <- 14282 - total_genus
+  
+  # Ajouter les occurrences NA manquantes à la table
+  if ("NA" %in% names(genus_table)) {
+    genus_table["NA"] <- genus_table["NA"] + genus_na_to_add
+  } else {
+    genus_table <- c(genus_table, "NA" = genus_na_to_add)
+  }
+
+
   # Créer la table pour les familles
   family_table <- table(family_cover$code_garden)
   
@@ -693,21 +737,7 @@ cover_plot <- cover_plot %>%
     family_table <- c(family_table, "NA" = family_na_to_add)
   }
   
-  # Créer la table pour les genres
-  genus_table <- table(genus_cover$code_garden)
-  
-  # Compter le nombre total d'occurrences
-  total_genus <- sum(genus_table)
-  
-  # Calculer les occurrences NA à ajouter
-  genus_na_to_add <- 14282 - total_genus
-  
-  # Ajouter les occurrences NA manquantes à la table
-  if ("NA" %in% names(genus_table)) {
-    genus_table["NA"] <- genus_table["NA"] + genus_na_to_add
-  } else {
-    genus_table <- c(genus_table, "NA" = genus_na_to_add)
-  }
+
   
   # Créer les dataframes finaux
   table_family <- data.frame(
@@ -725,8 +755,16 @@ cover_plot <- cover_plot %>%
     count = as.vector(genus_table),  
     stringsAsFactors = FALSE 
   )
+
+  table_species <- data.frame(
+    type = rep("species", length(species_table)), 
+    av = ifelse(names(species_table) == "NA", "not available", "available"), 
+    garden = names(species_table),         
+    count = as.vector(species_table),    
+    stringsAsFactors = FALSE               
+  )
   
-  table_full <- rbind(table_family, table_genus)
+  table_full <- rbind(table_family, table_genus,table_species)
   table_full$garden <- factor(table_full$garden, levels = code_list)
   # Render plot
   output$coverplot <- renderPlot({
@@ -1295,4 +1333,3 @@ output$downloadTablespecies <- downloadHandler(
   )
 
 }
-
