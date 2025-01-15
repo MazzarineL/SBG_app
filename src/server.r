@@ -1,6 +1,7 @@
 #install.packages(c("shiny", "rsconnect", "ggplot2", "dplyr", "ggtree", "rotl", 
 #                   "slider", "tidyquant", "gt", "plotbiomes", "rgbif", "sp", 
-#                   "rinat", "RColorBrewer", "curl", "maps"))
+#                   "rinat", "RColorBrewer", "curl", "maps", "ggvenn","VennDiagram"))
+
 
 library(shiny) 
 library(rsconnect) 
@@ -22,6 +23,9 @@ library(RColorBrewer)
 library(curl) 
 library(maps)
 library(Polychrome)
+library(VennDiagram)
+library(ggvenn)
+
 
 # Définir le serveur
 server <- function(input, output, session) {
@@ -805,6 +809,154 @@ create_cover_dataframe <- function(data, group_var) {
 
 
 
+observeEvent(input$action, {
+  req(input$Garden != "")
+
+  cover_plot <- cover_species_garden_full
+  input_code <- input$Garden
+
+  # Exclure les valeurs NA des colonnes nécessaires
+  cover_plot <- cover_plot[!is.na(cover_plot$species) & 
+                            !is.na(cover_plot$garden) & 
+                            !is.na(cover_plot$genus) & 
+                            !is.na(cover_plot$family), ]
+  
+  # Filtrer les données pour les jardins sélectionnés
+  filtered_data <- cover_plot[cover_plot$garden %in% input_code, ]
+
+  # Créer les listes pour species, genus et family en fonction des jardins filtrés
+  list_of_species <- lapply(input_code, function(garden) filtered_data$species[filtered_data$garden == garden])
+  names(list_of_species) <- input_code
+
+  list_of_genus <- lapply(input_code, function(garden) filtered_data$genus[filtered_data$garden == garden])
+  names(list_of_genus) <- input_code
+
+  list_of_family <- lapply(input_code, function(garden) filtered_data$family[filtered_data$garden == garden])
+  names(list_of_family) <- input_code
+  
+  # Mapping des couleurs selon les codes de jardin
+  color_values <- c(
+    "#E74C3C",  # Fribourg
+    "#9B59B6",  # Neuchâtel
+    "#3498DB",  # Lausanne
+    "#F39C12",  # Genève
+    "#8E44AD",  # Fribourg and Neuchâtel
+    "#D35400",  # Fribourg and Lausanne
+    "#E67E22",  # Fribourg, Lausanne, and Neuchâtel
+    "#2980B9",  # Fribourg and Genève
+    "#1ABC9C",  # Fribourg, Genève, and Lausanne
+    "#2C3E50",  # Fribourg, Genève, Lausanne, and Neuchâtel
+    "#C0392B",  # Fribourg, Genève, and Neuchâtel
+    "#FF5733",  # Genève and Lausanne
+    "#F1C40F",  # Genève, Lausanne, and Neuchâtel
+    "#16A085",  # Genève and Neuchâtel
+    "#A93226",  # Lausanne and Neuchâtel
+    "#BDC3C7"   # Not available (gris)
+  )[seq_along(input_code)]
+  
+  # Mapping des labels des jardins
+  replacement_mapping <- c(
+    "fr" = "Fribourg",
+    "ne" = "Neuchâtel",
+    "la" = "Lausanne",
+    "ge" = "Genève",
+    "fr_ne" = "Fribourg and Neuchâtel",
+    "fr_la" = "Fribourg and Lausanne",
+    "fr_la_ne" = "Fribourg, Lausanne, and Neuchâtel",
+    "fr_ge" = "Fribourg and Genève",
+    "fr_ge_la" = "Fribourg, Genève, and Lausanne",
+    "fr_ge_la_ne" = "Fribourg, Genève, Lausanne, and Neuchâtel",
+    "fr_ge_ne" = "Fribourg, Genève, and Neuchâtel",
+    "ge_la" = "Genève and Lausanne",
+    "ge_la_ne" = "Genève, Lausanne, and Neuchâtel",
+    "ge_ne" = "Genève and Neuchâtel",
+    "la_ne" = "Lausanne and Neuchâtel",
+    "NA" = "Not available"
+  )
+  
+  # Générer les labels pour les jardins sélectionnés
+  labels <- replacement_mapping[input_code]
+
+  # Fonction d'affichage du diagramme de Venn
+  display_venn <- function(x, ...){
+    grid.newpage()
+    venn_object <- venn.diagram(x, filename = NULL, ...)
+    grid.draw(venn_object)
+  }
+
+  # Créer les diagrammes Venn pour species, genus et family
+  venn_species <- grid.grabExpr({
+    display_venn(
+      list_of_species,
+      category.names = labels,
+      lwd = 2,
+      lty = 'blank',
+      fill = color_values,
+      cex = 1,
+      fontface = "italic",
+      cat.cex = 1,
+      cat.fontface = "bold",
+      cat.default.pos = "outer",
+      cat.dist = rep(0.1, length(input_code))
+    )
+    grid.text("Venn Plot Species in Botanical Garden", x = 0.5, y = 0.95, gp = gpar(fontsize = 16, fontface = "bold"))
+  })
+
+  venn_genus <- grid.grabExpr({
+    display_venn(
+      list_of_genus,
+      category.names = labels,
+      lwd = 2,
+      lty = 'blank',
+      fill = color_values,
+      cex = 1,
+      fontface = "italic",
+      cat.cex = 1,
+      cat.fontface = "bold",
+      cat.default.pos = "outer",
+      cat.dist = rep(0.1, length(input_code))
+    )
+    grid.text("Venn Plot Genus in Botanical Garden", x = 0.5, y = 0.95, gp = gpar(fontsize = 16, fontface = "bold"))
+  })
+
+  venn_family <- grid.grabExpr({
+    display_venn(
+      list_of_family,
+      category.names = labels,
+      lwd = 2,
+      lty = 'blank',
+      fill = color_values,
+      cex = 1,
+      fontface = "italic",
+      cat.cex = 1,
+      cat.fontface = "bold",
+      cat.default.pos = "outer",
+      cat.dist = rep(0.1, length(input_code))
+    )
+    grid.text("Venn Plot Family in Botanical Garden", x = 0.5, y = 0.95, gp = gpar(fontsize = 16, fontface = "bold"))
+  })
+
+  output$vennplot <- renderPlot({
+    isolate({
+      grid.arrange(venn_species, venn_genus, venn_family, ncol = 3)
+    })
+  })
+  
+  # Ajouter l'option de téléchargement
+  output$dlvenplot <- downloadHandler(
+    filename = function() {
+      paste0("Venn_plot_", Sys.Date(), ".jpg")
+    },
+    content = function(file) {
+      ggsave(filename = file, plot = last_plot(), device = "jpg", width = 10, height = 8)
+    }
+  )
+})
+
+
+
+
+
  
 
 ##################################################################
@@ -1333,3 +1485,7 @@ output$downloadTablespecies <- downloadHandler(
   )
 
 }
+
+
+shinyApp(ui = ui, server = server)
+

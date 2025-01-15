@@ -166,12 +166,20 @@ ui <- dashboardPage(
         )
       ),
         tabItem(tabName = "plot_cover",
-        helpText(tags$strong("This section displays the status of the plant families and types available in the gardens.")),
+        helpText(tags$strong("This section displays the status of the plant families and genus available in the gardens.")),
         fluidRow(
           box(title = "Coverage plot", status = "primary", solidHeader = TRUE, width = 12,
             plotOutput(outputId = "coverplot", height = "1000px"),
             div(class = "btn-group",
               downloadButton(outputId = "downloadcoverplot", label = "Download Coverage Plot", class = "btn btn-primary")
+            )
+          )
+        ),
+        fluidRow(
+          box(title = "Venn plot", status = "primary", solidHeader = TRUE, width = 40,
+            plotOutput(outputId = "vennplot", height = "1000px"),
+            div(class = "btn-group",
+              downloadButton(outputId = "dlvenplot", label = "Download Venn Plot", class = "btn btn-primary")
             )
           )
         )
@@ -215,7 +223,7 @@ ui <- dashboardPage(
         helpText(tags$strong("This section displays a table indicating the locations of each family, genus, or species across various botanical gardens.")),
         fluidRow(
           box(title = "Species Selection", status = "primary", solidHeader = TRUE, width = 12,
-            selectInput("selected_family", "Family", choices = NULL),
+            selectInput("selected_family", "Family", choices = sort(unique(cover_species_garden_full$family))),
             selectInput("selected_genus", "Genus", choices = c("", NULL)),
             selectInput("selected_species", "Species", choices = c("", NULL)),
             tags$br(), tags$br(),
