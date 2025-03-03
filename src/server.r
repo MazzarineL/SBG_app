@@ -25,6 +25,7 @@ library(maps)
 library(Polychrome)
 library(VennDiagram)
 library(ggvenn)
+library(gridExtra)
 
 
 # Définir le serveur
@@ -877,70 +878,76 @@ observeEvent(input$action, {
   # Générer les labels pour les jardins sélectionnés
   labels <- replacement_mapping[input_code]
 
-  # Fonction d'affichage du diagramme de Venn
-  display_venn <- function(x, ...){
-    grid.newpage()
-    venn_object <- venn.diagram(x, filename = NULL, ...)
-    grid.draw(venn_object)
-  }
+# Fonction d'affichage du diagramme de Venn 
+display_venn <- function(x, labels, ...) {
+  grid.newpage()
+  pushViewport(viewport(width = 0.5, height = 0.5))  # Réduction de la taille
+  venn_object <- venn.diagram(x, filename = NULL, category.names = labels, ...)  
+  grid.draw(venn_object)
+  popViewport()
+}
+# Création des diagrammes Venn pour species, genus et family
+venn_species <- grid.grabExpr({
+  display_venn(
+    list_of_species,
+    labels,
+    lwd = 1,
+    lty = 'blank',
+    fill = color_values,
+    cex = 0.8,
+    fontface = "italic",
+    cat.cex = 0,  # Suppression des labels sur le graphe
+    cat.default.pos = "outer",
+    cat.dist = rep(0.05, length(labels))
+  )
+  grid.text("Species coverage in Botanical Garden", x = 0.3, y = 0.95, gp = gpar(fontsize = 12, fontface = "bold"))
+})
 
-  # Créer les diagrammes Venn pour species, genus et family
-  venn_species <- grid.grabExpr({
-    display_venn(
-      list_of_species,
-      category.names = labels,
-      lwd = 2,
-      lty = 'blank',
-      fill = color_values,
-      cex = 1,
-      fontface = "italic",
-      cat.cex = 1,
-      cat.fontface = "bold",
-      cat.default.pos = "outer",
-      cat.dist = rep(0.1, length(input_code))
-    )
-    grid.text("Venn Plot Species in Botanical Garden", x = 0.5, y = 0.95, gp = gpar(fontsize = 16, fontface = "bold"))
-  })
+venn_genus <- grid.grabExpr({
+  display_venn(
+    list_of_genus,
+    labels,
+    lwd = 1,
+    lty = 'blank',
+    fill = color_values,
+    cex = 0.8,
+    fontface = "italic",
+    cat.cex = 0,
+    cat.default.pos = "outer",
+    cat.dist = rep(0.05, length(labels))
+  )
+  grid.text("Genus coverage in Botanical Garden", x = 0.3, y = 0.95, gp = gpar(fontsize = 12, fontface = "bold"))
+})
 
-  venn_genus <- grid.grabExpr({
-    display_venn(
-      list_of_genus,
-      category.names = labels,
-      lwd = 2,
-      lty = 'blank',
-      fill = color_values,
-      cex = 1,
-      fontface = "italic",
-      cat.cex = 1,
-      cat.fontface = "bold",
-      cat.default.pos = "outer",
-      cat.dist = rep(0.1, length(input_code))
-    )
-    grid.text("Venn Plot Genus in Botanical Garden", x = 0.5, y = 0.95, gp = gpar(fontsize = 16, fontface = "bold"))
-  })
+venn_family <- grid.grabExpr({
+  display_venn(
+    list_of_family,
+    labels,
+    lwd = 1,
+    lty = 'blank',
+    fill = color_values,
+    cex = 0.8,
+    fontface = "italic",
+    cat.cex = 0,
+    cat.default.pos = "outer",
+    cat.dist = rep(0.05, length(labels))
+  )
+  grid.text("Family coverage in Botanical Garden", x = 0.3, y = 0.95, gp = gpar(fontsize = 12, fontface = "bold"))
+})
 
-  venn_family <- grid.grabExpr({
-    display_venn(
-      list_of_family,
-      category.names = labels,
-      lwd = 2,
-      lty = 'blank',
-      fill = color_values,
-      cex = 1,
-      fontface = "italic",
-      cat.cex = 1,
-      cat.fontface = "bold",
-      cat.default.pos = "outer",
-      cat.dist = rep(0.1, length(input_code))
-    )
-    grid.text("Venn Plot Family in Botanical Garden", x = 0.5, y = 0.95, gp = gpar(fontsize = 16, fontface = "bold"))
-  })
+# Création de la légende
+legend_plot <- grid.grabExpr({
+  grid.newpage()
+  legend_grob <- legendGrob(labels, pch = 15, gp = gpar(col = color_values, fontsize = 12, fontface = "bold"))
+  grid.draw(legend_grob)
+})
 
-  output$vennplot <- renderPlot({
-    isolate({
-      grid.arrange(venn_species, venn_genus, venn_family, ncol = 3)
-    })
+# Affichage final avec la légende au-dessus
+output$vennplot <- renderPlot({
+  isolate({
+    grid.arrange(legend_plot, venn_species, venn_genus, venn_family, ncol = 1, heights = c(0.3, 1, 1, 1))
   })
+})
   
   # Ajouter l'option de téléchargement
   output$dlvenplot <- downloadHandler(

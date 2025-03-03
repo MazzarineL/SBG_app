@@ -176,7 +176,7 @@ ui <- dashboardPage(
           )
         ),
         fluidRow(
-          box(title = "Venn plot", status = "primary", solidHeader = TRUE, width = 40,
+          box(title = "Venn plot", status = "primary", solidHeader = TRUE, width = 12,
             plotOutput(outputId = "vennplot", height = "1000px"),
             div(class = "btn-group",
               downloadButton(outputId = "dlvenplot", label = "Download Venn Plot", class = "btn btn-primary")
