@@ -1,8 +1,9 @@
 #install.packages(c("shiny", "rsconnect", "ggplot2", "dplyr", "ggtree", "rotl", 
-#                   "slider", "tidyquant", "gt", "plotbiomes", "rgbif", "sp", 
-#                   "rinat", "RColorBrewer", "curl", "maps", "ggvenn","VennDiagram"))
+#                   "slider", "gt", "plotbiomes", "rgbif", "sp", "Polychrome",
+#                   "rinat", "RColorBrewer", "curl", "maps", "ggvenn","VennDiagram","gridExtra","BiocManager","devtools"))
 
 
+library(BiocManager) 
 library(shiny) 
 library(rsconnect) 
 library(ggplot2) 
@@ -1408,8 +1409,8 @@ output$downloaddistrib <- downloadHandler(
   
   ##############################################################
 
-   cover_species <- cover_species_garden_full
-
+cover_species <- cover_species_garden_full
+all_species <- all_species_taxo
 
 # Remplacer les valeurs dans garden en utilisant le vecteur de correspondances
 cover_species <- cover_species %>%
@@ -1430,6 +1431,10 @@ cover_species <- cover_species %>%
    cover_species <- cover_species %>%
    dplyr::select(species, genus, family, garden, pres)
 
+all_species$garden <- "NA"
+all_species$pres <-"0"
+
+cover_species <- rbind(all_species,cover_species)
 
 cover_genus <- cover_genus_garden_full
    cover_genus <- cover_genus[cover_genus$pres == 0, c("family", "genus", "garden", "pres")]
@@ -1454,7 +1459,7 @@ cover_genus <- cover_genus_garden_full
   
   observe({
     if (!is.null(input$selected_family) && input$selected_family != "" && !is.null(input$selected_genus) && input$selected_genus != "") {
-      updateSelectInput(session, "selected_species", choices = c("", unique(cover_species$species[cover_species_garden_full$family == input$selected_family & cover_species_garden_full$genus == input$selected_genus])))
+      updateSelectInput(session, "selected_species", choices = c("", unique(cover_species$species[cover_species$family == input$selected_family & cover_species$genus == input$selected_genus])))
     } else {
       updateSelectInput(session, "selected_species", choices = c("", NULL))
     }
@@ -1492,7 +1497,4 @@ output$downloadTablespecies <- downloadHandler(
   )
 
 }
-
-
-shinyApp(ui = ui, server = server)
 

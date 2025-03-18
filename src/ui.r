@@ -125,8 +125,8 @@ ui <- dashboardPage(
       tabItem(tabName = "garden_tree",
         helpText(tags$strong("This section displays the Garden Tree plot.")),
         fluidRow(
-          box(title = "Garden Tree", status = "primary", solidHeader = TRUE, width = 12,
-            plotOutput(outputId = "treePlot", height = "600px"),
+          box(title = "Garden Tree", status = "primary", solidHeader = TRUE, width = 25,
+            plotOutput(outputId = "treePlot", height = "1500px"),
             div(class = "btn-group",
               downloadButton(outputId = "downloadFullPlot", label = "Download Garden Tree Plot", class = "btn btn-primary")
             )
@@ -176,8 +176,8 @@ ui <- dashboardPage(
           )
         ),
         fluidRow(
-          box(title = "Venn plot", status = "primary", solidHeader = TRUE, width = 12,
-            plotOutput(outputId = "vennplot", height = "1000px"),
+          box(title = "Venn plot", status = "primary", solidHeader = TRUE, width = 15,
+            plotOutput(outputId = "vennplot", height = "1200px"),
             div(class = "btn-group",
               downloadButton(outputId = "dlvenplot", label = "Download Venn Plot", class = "btn btn-primary")
             )
@@ -202,14 +202,6 @@ ui <- dashboardPage(
             plotOutput(outputId = "whitplotFamily", height = "1000px"),
             div(class = "btn-group",
               downloadButton(outputId = "dlwhitplotFamily", label = "Download Whitakker Family Plot", class = "btn btn-primary")
-            )
-          )
-        ),
-        fluidRow(
-          box(title = "Whitakker Family Kernel Density Plot", status = "primary", solidHeader = TRUE, width = 12,
-            plotOutput(outputId = "whitplotFamilyKernel", height = "1000px"),
-            div(class = "btn-group",
-              downloadButton(outputId = "dlwhitplotFamilyKernel", label = "Download Whitakker Family Plot with Kernel Density", class = "btn btn-primary")
             )
           )
         ),
