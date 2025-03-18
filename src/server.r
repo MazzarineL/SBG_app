@@ -187,7 +187,7 @@ observeEvent(input$action, {
     output$treePlot <- renderPlot({
       isolate({
         tree_plot <- ggtree::ggtree(my_tree, layout = "circular") +
-          geom_tiplab(size = 2, offset = 0.5)
+          geom_tiplab(size = 4, offset = 0.5)
         
         g2 <- ggtree::groupOTU(tree_plot, g, "family") +
           aes(color = family) +
