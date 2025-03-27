@@ -837,24 +837,26 @@ observeEvent(input$action, {
   names(list_of_family) <- input_code
   
   # Mapping des couleurs selon les codes de jardin
-  color_values <- c(
-    "#E74C3C",  # Fribourg
-    "#9B59B6",  # Neuchâtel
-    "#3498DB",  # Lausanne
-    "#F39C12",  # Genève
-    "#8E44AD",  # Fribourg and Neuchâtel
-    "#D35400",  # Fribourg and Lausanne
-    "#E67E22",  # Fribourg, Lausanne, and Neuchâtel
-    "#2980B9",  # Fribourg and Genève
-    "#1ABC9C",  # Fribourg, Genève, and Lausanne
-    "#2C3E50",  # Fribourg, Genève, Lausanne, and Neuchâtel
-    "#C0392B",  # Fribourg, Genève, and Neuchâtel
-    "#FF5733",  # Genève and Lausanne
-    "#F1C40F",  # Genève, Lausanne, and Neuchâtel
-    "#16A085",  # Genève and Neuchâtel
-    "#A93226",  # Lausanne and Neuchâtel
-    "#BDC3C7"   # Not available (gris)
-  )[seq_along(input_code)]
+ # colors from palette
+color_values<- c(
+  "#E74C3C",  # Fribourg
+  "#9B59B6",  # Neuchâtel
+  "#3498DB",  # Lausanne
+  "#F39C12",  # Genève
+  "#8E44AD",  # Fribourg and Neuchâtel
+  "#D35400",  # Fribourg and Lausanne
+  "#E67E22",  # Fribourg, Lausanne, and Neuchâtel
+  "#2980B9",  # Fribourg and Genève
+  "#1ABC9C",  # Fribourg, Genève, and Lausanne
+  "#2C3E50",  # Fribourg, Genève, Lausanne, and Neuchâtel
+  "#C0392B",  # Fribourg, Genève, and Neuchâtel
+  "#FF5733",  # Genève and Lausanne
+  "#F1C40F",  # Genève, Lausanne, and Neuchâtel
+  "#16A085",  # Genève and Neuchâtel
+  "#A93226",  # Lausanne and Neuchâtel
+  "#BDC3C7"   # Not available (gris)
+)
+names(color_values) <- family_levels
   
   # Mapping des labels des jardins
   replacement_mapping <- c(
@@ -878,7 +880,7 @@ observeEvent(input$action, {
   
   # Générer les labels pour les jardins sélectionnés
   labels <- replacement_mapping[input_code]
-
+  color_values <- color_values[names(color_values) %in% input_code]
 # Fonction d'affichage du diagramme de Venn 
 display_venn <- function(x, labels, ...) {
   grid.newpage()
@@ -1497,4 +1499,3 @@ output$downloadTablespecies <- downloadHandler(
   )
 
 }
-
