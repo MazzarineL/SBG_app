@@ -1532,9 +1532,9 @@ output$downloadTablespecies <- downloadHandler(
       return(NULL)
     }
   })
-  
+
   list_fr <- reactive({
-    read.csv("D:/Thèse Metabolomique/Thèse Metabolomique/jardin botanique/fri/species_list_croisee_final.csv", sep = ",") %>%
+    read.csv(curl::curl("  https://raw.githubusercontent.com/MazzarineL/SBG_app/refs/heads/main/data/botanical_garden_list/list_fribourg.csv"), sep = ",") %>%
       select(ipen, secteur, idTaxon, matched_name) %>%
       mutate(idTaxon = sapply(strsplit(trimws(idTaxon), "\\s+"), function(x) paste(head(x, 2), collapse = " ")))
   })
