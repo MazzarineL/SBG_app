@@ -2,7 +2,7 @@
 #                   "slider", "gt", "plotbiomes", "rgbif", "sp", "Polychrome",
 #                   "rinat", "RColorBrewer", "curl", "maps", "ggvenn","VennDiagram","gridExtra","BiocManager","devtools"))
 
-
+library(DT)
 library(BiocManager) 
 library(shiny) 
 library(rsconnect) 
@@ -27,7 +27,15 @@ library(Polychrome)
 library(VennDiagram)
 library(ggvenn)
 library(gridExtra)
-
+library(httr)
+library(jsonlite)
+library(stringr)
+library(sf)
+library(rmapshaper)
+library(nngeo)
+library(stringi)
+library(stringr)
+library(ggspatial)
 
 # Définir le serveur
 server <- function(input, output, session) {
@@ -1497,5 +1505,220 @@ output$downloadTablespecies <- downloadHandler(
         write.csv(select_species(), file, row.names = FALSE)
     }
   )
+
+
+
+
+
+
+
+
+
+  ###################################################
+  ###################### DBGI #######################
+  ###################################################
+
+  
+  # Chargement API + données de base
+  data <- reactive({
+    res <- GET("https://emi-collection.unifr.ch/directus/items/Field_Data?limit=10000")
+    if (status_code(res) == 200) {
+      data_raw <- content(res, as = "text", encoding = "UTF-8")
+      data_json <- fromJSON(data_raw)
+      df <- data_json$data
+      return(df)
+    } else {
+      showNotification(paste("Erreur lors de la récupération :", status_code(res)), type = "error")
+      return(NULL)
+    }
+  })
+  
+  list_fr <- reactive({
+    read.csv("D:/Thèse Metabolomique/Thèse Metabolomique/jardin botanique/fri/species_list_croisee_final.csv", sep = ",") %>%
+      select(ipen, secteur, idTaxon, matched_name) %>%
+      mutate(idTaxon = sapply(strsplit(trimws(idTaxon), "\\s+"), function(x) paste(head(x, 2), collapse = " ")))
+  })
+  
+  list_neu <- reactive({
+    neu_cult2024 <- readxl::read_excel("D:/plant_area_jbn/cultivatedExport2024.xlsx")
+    neu_cult2023 <- readxl::read_excel("D:/plant_area_jbn/cultivatedExport2023.xlsx")
+    
+    neu_cult2023$years <- 2023
+    neu_cult2024$years <- 2024
+    
+    df <- bind_rows(neu_cult2023, neu_cult2024)
+    
+    colnames(df) <- gsub(" ", "_", colnames(df))
+    colnames(df) <- tolower(colnames(df))
+    colnames(df) <- gsub("[éè]", "e", colnames(df))
+    colnames(df) <- gsub("[^a-z0-9_]", "", iconv(colnames(df), "latin1", "ASCII", sub=""))
+    
+    df$numero_de_specimen_cultive <- substr(df$numero_de_specimen_cultive, 1, 8)
+    
+    df <- df %>%
+      select(code_ipen, famille, genre, espece, groupe, sousgroupe, years) %>%
+      mutate(
+        species = tolower(paste(genre, espece)),
+        groupe = tolower(groupe) %>% gsub(" ", "_", .) %>% gsub("'", "", .) %>% stri_trans_general("Latin-ASCII"),
+        sousgroupe = tolower(sousgroupe) %>% gsub(" ", "_", .) %>% gsub("'", "", .) %>% stri_trans_general("Latin-ASCII")
+      )
+    
+    df$sousgroupe[is.na(df$sousgroupe)] <- df$groupe[is.na(df$sousgroupe)]
+    
+    df <- df[!duplicated(df$code_ipen), ]
+    df
+  })
+  
+  # jbuf_merged
+  jbuf_merged <- reactive({
+    req(data())
+    d <- data()
+    filtered <- d %>% filter(grepl("dbgi", sample_id, ignore.case = TRUE))
+    filtered$taxon_name <- ifelse(is.na(filtered$taxon_name), "", filtered$taxon_name)
+    filtered$sample_name <- ifelse(is.na(filtered$sample_name), "", filtered$sample_name)
+    filtered$taxon_name <- paste(filtered$taxon_name, filtered$sample_name)
+    filtered$taxon_name <- sapply(strsplit(trimws(filtered$taxon_name), "\\s+"), function(x) paste(head(x, 2), collapse = " "))
+    
+    jbuf <- filtered[filtered$qfield_project == "jbuf", ]
+    jbuf <- jbuf[, c("taxon_name", "sample_id", "x_coord", "y_coord", "qfield_project")]
+    jbuf <- jbuf[!is.na(jbuf$taxon_name) & jbuf$taxon_name != "", ]
+    
+    jbuf$taxon_name <- tolower(jbuf$taxon_name)
+    jbuf$taxon_name <- gsub("[^a-z0-9 ]", "", jbuf$taxon_name)
+    jbuf$taxon_name <- trimws(jbuf$taxon_name)
+    
+    fr <- list_fr()
+    fr$idTaxon <- tolower(fr$idTaxon)
+    fr$idTaxon <- gsub("[^a-z0-9 ]", "", fr$idTaxon)
+    fr$idTaxon <- trimws(fr$idTaxon)
+    
+    merged <- merge(jbuf, fr, by.x = "taxon_name", by.y = "idTaxon", all.x = TRUE)
+    merged <- merged[!duplicated(merged$sample_id), ]
+    merged
+  })
+  
+  # jbn_merged
+  jbn_merged <- reactive({
+    req(data())
+    d <- data()
+    filtered <- d %>% filter(grepl("dbgi", sample_id, ignore.case = TRUE))
+    filtered$taxon_name <- ifelse(is.na(filtered$taxon_name), "", filtered$taxon_name)
+    filtered$sample_name <- ifelse(is.na(filtered$sample_name), "", filtered$sample_name)
+    filtered$taxon_name <- paste(filtered$taxon_name, filtered$sample_name)
+    filtered$taxon_name <- sapply(strsplit(trimws(filtered$taxon_name), "\\s+"), function(x) paste(head(x, 2), collapse = " "))
+    
+    jbn <- filtered[filtered$qfield_project == "jbn", ]
+    jbn <- jbn[, c("taxon_name", "sample_id", "x_coord", "y_coord", "qfield_project")]
+    jbn <- jbn[!is.na(jbn$taxon_name) & jbn$taxon_name != "", ]
+    
+    jbn$taxon_name <- tolower(jbn$taxon_name)
+    jbn$taxon_name <- gsub("_", " ", jbn$taxon_name)
+    jbn$taxon_name <- trimws(jbn$taxon_name)
+    jbn$taxon_name <- sapply(strsplit(jbn$taxon_name, "\\s+"), function(x) paste(head(x, 2), collapse = " "))
+    jbn$taxon_name <- gsub("[^a-z0-9 ]", "", jbn$taxon_name)
+    jbn$taxon_name <- trimws(jbn$taxon_name)
+    
+    neu <- list_neu()
+    
+    merged <- merge(jbn, neu, by.x = "taxon_name", by.y = "species", all.x = TRUE)
+    merged
+  })
+  
+  # jbuf_sf pour leaflet
+  jbuf_sf <- reactive({
+    df <- jbuf_merged()
+    df <- df[!is.na(df$x_coord) & !is.na(df$y_coord) & df$x_coord != "" & df$y_coord != "", ]
+    sf <- st_as_sf(df, coords = c("x_coord", "y_coord"), crs = 2056, remove = FALSE)
+    st_transform(sf, crs = 4326)
+  })
+  
+  # jbn_sf pour leaflet
+  jbn_sf <- reactive({
+    df <- jbn_merged()
+    df <- df[!is.na(df$x_coord) & !is.na(df$y_coord) & df$x_coord != "" & df$y_coord != "", ]
+    sf <- st_as_sf(df, coords = c("x_coord", "y_coord"), crs = 2056, remove = FALSE)
+    st_transform(sf, crs = 4326)
+  })
+  
+  # Render DataTables
+  output$table_jbuf <- renderDT({
+    datatable(jbuf_merged(), options = list(pageLength = 10, scrollX = TRUE))
+  })
+  
+  output$table_jbn <- renderDT({
+    datatable(jbn_merged(), options = list(pageLength = 10, scrollX = TRUE))
+  })
+  
+  # Render Leaflet maps
+  output$leaflet_jbuf <- renderLeaflet({
+    sf <- jbuf_sf()
+    req(sf)
+    leaflet(sf) %>%
+      addTiles() %>%
+      addCircleMarkers(
+        radius = 4,
+        color = "blue",
+        stroke = FALSE,
+        fillOpacity = 0.7,
+        popup = ~paste0("<b>Sample ID:</b> ", sample_id, "<br>",
+                        "<b>Taxon:</b> ", taxon_name)
+      ) %>%
+      addScaleBar(position = "bottomleft")
+  })
+  
+  output$leaflet_jbn <- renderLeaflet({
+    sf <- jbn_sf()
+    req(sf)
+    leaflet(sf) %>%
+      addTiles() %>%
+      addCircleMarkers(
+        radius = 4,
+        color = "darkgreen",
+        stroke = FALSE,
+        fillOpacity = 0.7,
+        popup = ~paste0("<b>Sample ID:</b> ", sample_id, "<br>",
+                        "<b>Taxon:</b> ", taxon_name)
+      ) %>%
+      addScaleBar(position = "bottomleft")
+  })
+
+
+
+
+
+
+
+
+advance_long <- tibble::tribble(
+  ~status,  ~garden, ~count,
+  "all",     "jbn",     2230,
+  "all",     "jbuf",    5225,
+  "sampled", "jbn",     1634,
+  "sampled", "jbuf",    2364
+)
+advance_long <- advance_long %>%
+  group_by(garden) %>%
+  mutate(max_count = max(count),
+         prop = count / max_count * 100) %>%
+  ungroup()
+
+  output$progress_plot <- renderPlot({
+    ggplot(advance_long, aes(x = garden, y = prop, fill = status)) +
+      geom_bar(stat = "identity", position = "stack", width = 0.6) +
+      scale_fill_manual(values = c("all" = "grey70", "sampled" = "orange")) +
+      coord_flip() +  # barre horizontale = plus "barre de chargement"
+      labs(x = "Garden", y = "Progress (%)", fill = "Status") +
+      theme_minimal(base_size = 16) +
+      theme(
+        legend.position = "top",
+        axis.title.y = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor = element_blank()
+      ) +
+      geom_text(aes(label = paste0(round(prop), "%")),
+                position = position_stack(vjust = 0.5),
+                color = "black",
+                size = 5)
+  })
 
 }

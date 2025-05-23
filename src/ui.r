@@ -25,230 +25,230 @@ ui <- dashboardPage(
         margin-top: 15px;
       }
     ")),
-    sidebarMenu(
-      div(class = "filters-section",
-          menuItem("Filters", tabName = "filters", icon = icon("filter"), selected = TRUE),
-          checkboxGroupInput(inputId = "Garden", label = "Select Garden", choices = c("Neuchâtel" = "ne", "Fribourg" = "fr", "Lausanne" = "la", "Geneva" = "ge")),
-          actionButton(inputId = "action", label = "Go!", icon = icon("play"), style = "color: #fff; background-color: #222c32;")
-      ),
-      menuItem("Phylogenetic", icon = icon("sitemap"),
-               menuSubItem("Garden Tree", tabName = "garden_tree", icon = icon("tree")),
-               menuSubItem("Family Tree", tabName = "family_tree", icon = icon("leaf")),
-               menuSubItem("Phylogenetic coverage", tabName = "plot_cover", icon = icon("chart-simple"))
-      ),
-      menuItem("Biome", icon = icon("globe"),
-               menuSubItem("Whitakker Garden plot", tabName = "whit_garden_plot", icon = icon("chart-area")),
-               menuSubItem("Whitakker Family plot", tabName = "whit_family_plot", icon = icon("chart-bar"))
-      ),
-      menuItem("Quick Search", icon = icon("search"),
-               menuSubItem("Species Selection", tabName = "species_selection", icon = icon("dna")),
-               menuSubItem("Species World Distribution", tabName = "species_distribution", icon = icon("map"))
-      )
-    )
+sidebarMenu(
+  div(class = "filters-section",
+      menuItem("Filters", tabName = "filters", icon = icon("sliders"), selected = TRUE),
+      checkboxGroupInput(inputId = "Garden", label = "Select Garden",
+                         choices = c("Neuchâtel" = "ne", "Fribourg" = "fr", "Lausanne" = "la", "Geneva" = "ge")),
+      actionButton(inputId = "action", label = "Go!", icon = icon("play"), style = "color: #fff; background-color: #222c32;")
   ),
-  dashboardBody(
-    tags$head(tags$style(HTML('
-      /* Logo and top bar */
-      .skin-blue .main-header .logo {
-        background-color: #008d4c; /* Green */
-      }
-      .skin-blue .main-header .navbar {
-        background-color: #00a75a; /* Light Green */
-      }
-      /* Sidebar */
-      .skin-blue .main-sidebar {
-        background-color: #222c32; /* Dark Green */
-      }
-      /* Active tab */
-      .skin-blue .main-sidebar .sidebar .sidebar-menu .active a {
-        background-color: #008d4c; /* Darker Green */
-      }
-      /* Other links */
-      .skin-blue .main-sidebar .sidebar .sidebar-menu a {
-        background-color: #222c32; /* Lighter Green */
-        color: #ffffff;
-      }
-      /* Hovered links */
-      .skin-blue .main-sidebar .sidebar .sidebar-menu a:hover {
-        background-color: #008d4c; /* Green */
-      }
-      /* Toggle button hovered */
-      .skin-blue .main-header .navbar .sidebar-toggle:hover {
-        background-color: #008d4c; /* Green */
-      }
-      /* Change border color of box */
-      .tab-pane.active .box {
-        border-color: #00a75a; /* Light Green */
-      }
-      /* Change box header color */
-      .tab-pane.active .box .box-header {
-        background-color: #00a75a; /* Light Green */
-        color: #ffffff; /* White */
-      }
-      /* Change download button color */
-      .tab-pane.active .btn-primary {
-        background-color: #00a75a; /* Light Green */
-        border-color: #00a75a; /* Light Green */
-      }
-    '))),
-    tabItems(
-      tabItem(tabName = "filters",
-        fluidRow(
-          tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 30px; text-align: center;",
-            "Welcome to the Botanical Garden Coverage Application."
-          ),
-          tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
-            "To get started, choose one or more gardens."
-          ),
-          tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
-            "Launch the script with the 'Go' button."
-          ),
-          tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
-           "Click on the various dropdown menus to view your results. Several pages display multiple graphs, so don't hesitate to scroll."
-          ),
-          tags$div(
-            style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
-            "If you find a bug or have any comments on the ergonomics or improvements for the app, and if you work in a botanical garden and 
-            want to see your data included in the application, you can contact me at ",
-            tags$a(
-              href = "mailto:mazzarine.laboureau@unine.ch", 
-              "mazzarine.laboureau@unine.ch.",
-              style = "color: #3c8dbc; font-weight: bold;"
-            ),
-          ),
-          tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
-            "All the data and the script are available on my ",
-            a(href = "https://github.com/MazzarineL/SBG_app", "GitHub page.")
-          )
-        )
-      ),
-      tabItem(tabName = "garden_tree",
-        helpText(tags$strong("This section displays the Garden Tree plot.")),
-        fluidRow(
-          box(title = "Garden Tree", status = "primary", solidHeader = TRUE, width = 25,
-            plotOutput(outputId = "treePlot", height = "1500px"),
-            div(class = "btn-group",
-              downloadButton(outputId = "downloadFullPlot", label = "Download Garden Tree Plot", class = "btn btn-primary")
-            )
-          )
-        )
-      ),
-      tabItem(tabName = "family_tree",
-        helpText(tags$strong("This section presents the Family Tree plot, highlighting the genus names in blue if they are included in the botanical garden, thereby enhancing the coverage optimization for the family. You can adjust the window size and the step for change the calcul parameters.")),
-        fluidRow(
-          box(title = "Family Selection", status = "primary", solidHeader = TRUE, width = 12,
-                    selectInput(inputId = "family", label = "Family to Test", choices = sort(unique(cover_species_garden_full$family)), selected = ""),
-                    sliderInput(inputId = "genus_select", label = "Number of genus to select", min = 1, max = 30, value = 5),
-                    actionButton(inputId = "actionfamily", label = "Apply Family Filter", icon = icon("play"), style = "color: #fff; background-color: #222c32;"),
-                    tags$div(style = "color: #000000; font-size: 14px; font-weight: bold; margin-top: 10px;",
-              "It may happen that the number of genera selected cannot be perfectly matched to your request, in which case the model will choose the number of genera closest to your pre-selection, maximizing genus coverage. Furthermore, if you've chosen a high number of genus and the tree has no blue branches, this means that you've reached the maximum number of selectable genus and there are none to select as a priority."
-            ),
-            textOutput("textgenus"),
-            tableOutput("onlygenus"),
-            plotOutput(outputId = "FamilyPlot", height = "800px"),
-            div(style = "margin-top: 20px;",
-              tableOutput("mytable"),
-              tags$style(HTML("
-                #mytable table {
-                  width: 100%;
-                }
-                #mytable td {
-                  width: 33%;
-                }
-              "))
-            ),
-            div(class = "btn-group",
-              downloadButton(outputId = "downloadFamilyPlot", label = "Download Family Tree Plot", class = "btn btn-primary"),
-              tags$br(), tags$br(),
-              downloadButton(outputId = "downloadTable", label = "Download Priority Table", class = "btn btn-primary")
-            )
-          )
-        )
-      ),
-        tabItem(tabName = "plot_cover",
-        helpText(tags$strong("This section displays the status of the plant families and genus available in the gardens.")),
-        fluidRow(
-          box(title = "Coverage plot", status = "primary", solidHeader = TRUE, width = 12,
-            plotOutput(outputId = "coverplot", height = "1000px"),
-            div(class = "btn-group",
-              downloadButton(outputId = "downloadcoverplot", label = "Download Coverage Plot", class = "btn btn-primary")
-            )
+  
+  menuItem("Phylogenetic", icon = icon("network-wired"),
+           menuSubItem("Garden Tree", tabName = "garden_tree", icon = icon("tree")),
+           menuSubItem("Family Tree", tabName = "family_tree", icon = icon("sitemap")),
+           menuSubItem("Phylogenetic Coverage", tabName = "plot_cover", icon = icon("project-diagram"))
+  ),
+  
+  menuItem("Biome", icon = icon("globe-americas"),
+           menuSubItem("Whittaker Garden Plot", tabName = "whit_garden_plot", icon = icon("chart-line")),
+           menuSubItem("Whittaker Family Plot", tabName = "whit_family_plot", icon = icon("chart-pie"))
+  ),
+  
+  menuItem("Quick Search", icon = icon("magnifying-glass"),
+           menuSubItem("Species Selection", tabName = "species_selection", icon = icon("leaf")),
+           menuSubItem("Species World Distribution", tabName = "species_distribution", icon = icon("globe"))
+  ),
+  
+  menuItem("DBGI", icon = icon("database"),
+           menuSubItem("Data Frame", tabName = "data_frame", icon = icon("table")),
+           menuSubItem("Botanical Garden Map", tabName = "bot_map", icon = icon("map-location-dot")),
+           menuSubItem("Sampling", tabName = "sample", icon = icon("flask"))
+  )
+)
+  ),dashboardBody(
+  tags$head(tags$style(HTML('
+    /* Logo and top bar */
+    .skin-blue .main-header .logo {
+      background-color: #008d4c; /* Green */
+    }
+    .skin-blue .main-header .navbar {
+      background-color: #00a75a; /* Light Green */
+    }
+    .skin-blue .main-sidebar {
+      background-color: #222c32; /* Dark Green */
+    }
+    .skin-blue .main-sidebar .sidebar .sidebar-menu .active a {
+      background-color: #008d4c;
+    }
+    .skin-blue .main-sidebar .sidebar .sidebar-menu a {
+      background-color: #222c32;
+      color: #ffffff;
+    }
+    .skin-blue .main-sidebar .sidebar .sidebar-menu a:hover {
+      background-color: #008d4c;
+    }
+    .skin-blue .main-header .navbar .sidebar-toggle:hover {
+      background-color: #008d4c;
+    }
+    .tab-pane.active .box {
+      border-color: #00a75a;
+    }
+    .tab-pane.active .box .box-header {
+      background-color: #00a75a;
+      color: #ffffff;
+    }
+    .tab-pane.active .btn-primary {
+      background-color: #00a75a;
+      border-color: #00a75a;
+    }
+  '))),
+  
+  tabItems(
+    tabItem(tabName = "filters",
+      fluidRow(
+        tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 30px; text-align: center;",
+          "Welcome to the Botanical Garden Coverage Application."
+        ),
+        tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
+          "To get started, select one or more gardens."
+        ),
+        tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
+          "Launch the script by clicking the 'Go' button."
+        ),
+        tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
+          "Explore the various tabs to view your results. Some pages include multiple graphs, so feel free to scroll."
+        ),
+        tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
+          "If you find a bug or have suggestions to improve the app’s usability, or if you work at a botanical garden and want your data included, please contact me at ",
+          tags$a(
+            href = "mailto:mazzarine.laboureau@unine.ch", 
+            "mazzarine.laboureau@unine.ch",
+            style = "color: #3c8dbc; font-weight: bold;"
           )
         ),
-        fluidRow(
-          box(title = "Venn plot", status = "primary", solidHeader = TRUE, width = 15,
-            plotOutput(outputId = "vennplot", height = "1200px"),
-            div(class = "btn-group",
-              downloadButton(outputId = "dlvenplot", label = "Download Venn Plot", class = "btn btn-primary")
-            )
-          )
-        )
-      ),
-      tabItem(tabName = "whit_garden_plot",
-        helpText(tags$strong("This section displays the Whitakker plot for the gardens selected.")),
-        fluidRow(
-          box(title = "Whitakker Garden Plot", status = "primary", solidHeader = TRUE, width = 12,
-            plotOutput(outputId = "whitplot", height = "1000px"),
-            div(class = "btn-group",
-              downloadButton(outputId = "dlwhitplot", label = "Download Whitakker Plot", class = "btn btn-primary")
-            )
-          )
-        )
-      ),
-      tabItem(tabName = "whit_family_plot",
-        helpText("This section displays the Whitakker plot for the family selected."),
-        fluidRow(
-          box(title = "Whitakker Family Plot", status = "primary", solidHeader = TRUE, width = 12,
-            plotOutput(outputId = "whitplotFamily", height = "1000px"),
-            div(class = "btn-group",
-              downloadButton(outputId = "dlwhitplotFamily", label = "Download Whitakker Family Plot", class = "btn btn-primary")
-            )
-          )
-        ),
-        fluidRow(
-          box(title = "Whitakker Family Plot Selection", status = "primary", solidHeader = TRUE, width = 12,
-            plotlyOutput(outputId = "whitplotSelect", height = "1000px")
-          )
-        )
-      ),
-      tabItem(tabName = "species_selection",
-        helpText(tags$strong("This section displays a table indicating the locations of each family, genus, or species across various botanical gardens.")),
-        fluidRow(
-          box(title = "Species Selection", status = "primary", solidHeader = TRUE, width = 12,
-            selectInput("selected_family", "Family", choices = sort(unique(cover_species_garden_full$family))),
-            selectInput("selected_genus", "Genus", choices = c("", NULL)),
-            selectInput("selected_species", "Species", choices = c("", NULL)),
-            tags$br(), tags$br(),
-            div(class = "btn-group",
-              downloadButton(outputId = "downloadTablespecies", label = "Download table of species", class = "btn btn-primary")
-            ),
-            tableOutput("selectedData")
-          )
-        )
-      ),
-      tabItem(tabName = "species_distribution",
-        helpText(tags$strong("This section displays the species distribution in the world.")),
-        fluidRow(
-          box(title = "Species Distribution", status = "primary", solidHeader = TRUE, width = 12,
-            tags$div(style = "color: #000000; font-size: 14px; font-weight: bold; margin-top: 10px;",
-              "Some species do not have location data available on GBIF and iNaturalist; in such cases, they will not appear on the map."
-            ),
-            tags$br(), tags$br(),
-            selectInput("GPS_family", "Select a family", choices = NULL),
-            selectInput("GPS_genus", "Select a genus:", choices = c("", NULL)),
-            selectInput("GPS_species", "Select a species:", choices = c("", NULL), multiple = TRUE),
-            actionButton("goButton", "Go"),
-            leafletOutput("map", width = "100%", height = "500px"),
-            tags$br(), tags$br(),
-            plotOutput(outputId = "mapsSimple", height = "1000px"),
-            div(class = "btn-group",
-              downloadButton(outputId = "downloaddistrib", label = "Download Distribution map", class = "btn btn-primary")
-            )
-          )
+        tags$div(style = "color: #000000; font-size: 30px; font-weight: bold; margin-top: 50px; text-align: center;",
+          "All data and scripts are available on my ",
+          a(href = "https://github.com/MazzarineL/SBG_app", "GitHub page.")
         )
       )
+    ),
+    
+    tabItem(tabName = "garden_tree",
+      helpText(tags$strong("This section displays the Garden Tree plot.")),
+      fluidRow(
+        box(title = "Garden Tree", status = "primary", solidHeader = TRUE, width = 25,
+          plotOutput(outputId = "treePlot", height = "1500px"),
+          downloadButton("downloadFullPlot", "Download Garden Tree Plot", class = "btn btn-primary")
+        )
+      )
+    ),
+    
+    tabItem(tabName = "family_tree",
+      helpText(tags$strong("This section presents the Family Tree plot...")),
+      fluidRow(
+        box(title = "Family Selection", status = "primary", solidHeader = TRUE, width = 12,
+          selectInput("family", "Family to Test", choices = sort(unique(cover_species_garden_full$family)), selected = ""),
+          sliderInput("genus_select", "Number of genera to select", min = 1, max = 30, value = 5),
+          actionButton("actionfamily", "Apply Family Filter", icon = icon("play"), style = "color: #fff; background-color: #222c32;"),
+          textOutput("textgenus"),
+          tableOutput("onlygenus"),
+          plotOutput("FamilyPlot", height = "800px"),
+          tableOutput("mytable"),
+          downloadButton("downloadFamilyPlot", "Download Family Tree Plot", class = "btn btn-primary"),
+          downloadButton("downloadTable", "Download Priority Table", class = "btn btn-primary")
+        )
+      )
+    ),
+    
+    tabItem(tabName = "plot_cover",
+      fluidRow(
+        box(title = "Coverage plot", status = "primary", solidHeader = TRUE, width = 12,
+          plotOutput("coverplot", height = "1000px"),
+          downloadButton("downloadcoverplot", "Download Coverage Plot", class = "btn btn-primary")
+        )
+      ),
+      fluidRow(
+        box(title = "Venn plot", status = "primary", solidHeader = TRUE, width = 15,
+          plotOutput("vennplot", height = "1200px"),
+          downloadButton("dlvenplot", "Download Venn Plot", class = "btn btn-primary")
+        )
+      )
+    ),
+    
+    tabItem(tabName = "whit_garden_plot",
+      fluidRow(
+        box(title = "Whittaker Garden Plot", status = "primary", solidHeader = TRUE, width = 12,
+          plotOutput("whitplot", height = "1000px"),
+          downloadButton("dlwhitplot", "Download Whittaker Plot", class = "btn btn-primary")
+        )
+      )
+    ),
+    
+    tabItem(tabName = "whit_family_plot",
+      fluidRow(
+        box(title = "Whittaker Family Plot", status = "primary", solidHeader = TRUE, width = 12,
+          plotOutput("whitplotFamily", height = "1000px"),
+          downloadButton("dlwhitplotFamily", "Download Whittaker Family Plot", class = "btn btn-primary")
+        )
+      ),
+      fluidRow(
+        box(title = "Whittaker Family Plot Selection", status = "primary", solidHeader = TRUE, width = 12,
+          plotlyOutput("whitplotSelect", height = "1000px")
+        )
+      )
+    ),
+    
+    tabItem(tabName = "species_selection",
+      fluidRow(
+        box(title = "Species Selection", status = "primary", solidHeader = TRUE, width = 12,
+          selectInput("selected_family", "Family", choices = sort(unique(cover_species_garden_full$family))),
+          selectInput("selected_genus", "Genus", choices = c("", NULL)),
+          selectInput("selected_species", "Species", choices = c("", NULL)),
+          downloadButton("downloadTablespecies", "Download table of species", class = "btn btn-primary"),
+          tableOutput("selectedData")
+        )
+      )
+    ),
+    
+    tabItem(tabName = "species_distribution",
+      fluidRow(
+        box(title = "Species Distribution", status = "primary", solidHeader = TRUE, width = 12,
+          selectInput("GPS_family", "Select a family", choices = NULL),
+          selectInput("GPS_genus", "Select a genus:", choices = c("", NULL)),
+          selectInput("GPS_species", "Select a species:", choices = c("", NULL), multiple = TRUE),
+          actionButton("goButton", "Go"),
+          leafletOutput("map", width = "100%", height = "500px"),
+          plotOutput("mapsSimple", height = "1000px"),
+          downloadButton("downloaddistrib", "Download Distribution map", class = "btn btn-primary")
+        )
+      )
+    ),
+
+    tabItem(tabName = "data_frame",
+      fluidRow(
+        box(title = "jbuf Merged Data Frame", status = "primary", solidHeader = TRUE, width = 12,
+          DT::dataTableOutput("table_jbuf"),
+          downloadButton("download_jbuf", "Download jbuf Data", class = "btn btn-primary")
+        )
+      ),
+      fluidRow(
+        box(title = "jbn Merged Data Frame", status = "primary", solidHeader = TRUE, width = 12,
+          DT::dataTableOutput("table_jbn"),
+          downloadButton("download_jbn", "Download jbn Data", class = "btn btn-primary")
+        )
+      )
+    ),
+    
+    tabItem(tabName = "bot_map",
+      fluidRow(
+        box(title = "Botanical Garden Maps", status = "primary", solidHeader = TRUE, width = 12,
+          tabsetPanel(
+            tabPanel("jbuf Map", leafletOutput("leaflet_jbuf", height = "800px")),
+            tabPanel("jbn Map", leafletOutput("leaflet_jbn", height = "800px"))
+          ),
+          downloadButton("download_map_jbuf", "Download jbuf Map", class = "btn btn-primary"),
+          downloadButton("download_map_jbn", "Download jbn Map", class = "btn btn-primary")
+        )
+      )
+    ),
+    
+    tabItem(tabName = "sample",
+  fluidRow(
+    box(title = "Progress Bar", status = "primary", solidHeader = TRUE, width = 12,
+      plotOutput("progress_plot", height = "600px")
     )
   )
 )
-
-
+  )
+)
+)
